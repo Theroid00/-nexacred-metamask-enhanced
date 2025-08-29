@@ -91,7 +91,8 @@ const WalletConnection = ({
           <button
             onClick={onConnect}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-lg font-medium transition-colors shadow-md cursor-pointer transform hover:scale-105"
+            style={{ minWidth: 160 }}
           >
             {isLoading ? (
               <>
@@ -138,7 +139,7 @@ const WalletConnection = ({
         
         <button
           onClick={onDisconnect}
-          className="px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded text-sm font-medium transition-colors"
+          className="px-3 py-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded text-sm font-medium transition-colors shadow cursor-pointer transform hover:scale-105"
         >
           Disconnect
         </button>
