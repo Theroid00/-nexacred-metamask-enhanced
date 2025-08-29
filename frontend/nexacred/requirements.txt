@@ -4,3 +4,4 @@ lucide-react
 tailwindcss
 postcss
 autoprefixer
+react-router-dom

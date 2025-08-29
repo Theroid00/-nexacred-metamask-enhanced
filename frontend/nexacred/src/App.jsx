@@ -1,5 +1,6 @@
 import Header from "./components/Header";
 import React, { useState } from "react";
+import { useNavigate, Routes, Route } from "react-router-dom";
 import AuthModal from "./components/AuthModal";
 import Hero from "./components/Hero";
 import TrustBadges from "./components/TrustBadges";
@@ -8,11 +9,13 @@ import HowItWorks from "./components/HowItWorks";
 import WhyNexaCred from "./components/WhyNexaCred";
 import CTA from "./components/CTA";
 import Footer from "./components/Footer";
+import Dashboard from "./pages/Dashboard";
 
 export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
+  const navigate = useNavigate();
 
   // Register API
   const handleRegister = async (form) => {
@@ -35,12 +38,12 @@ export default function App() {
   };
 
   // Login API
-  const handleLogin = async ({ email, password }) => {
+  const handleLogin = async ({ username, password }) => {
     try {
       const res = await fetch('/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username, password })
       });
       const data = await res.json();
       if (res.ok) {
@@ -48,11 +51,12 @@ export default function App() {
         localStorage.setItem('token', data.token);
         setUser(data.user);
         setAuthOpen(false);
+        navigate('/dashboard'); // Redirect after login
       } else {
         alert(data.error || 'Login failed');
       }
     } catch (err) {
-      alert('Login error');
+      alert('Login error', err);
     }
   };
 
@@ -71,16 +75,29 @@ export default function App() {
         onLogin={handleLogin}
         onRegister={handleRegister}
       />
-      <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-gray-950 text-white">
-        <Header user={user} handleLogout={handleLogout} setAuthOpen={setAuthOpen} />
-        <Hero />
-        <TrustBadges />
-        <Features />
-        <HowItWorks />
-        <WhyNexaCred />
-        <CTA />
-        <Footer />
-      </main>
+      <Routes>
+        <Route
+          path="/dashboard"
+          element={
+            <Dashboard user={user} />
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-gray-950 text-white">
+              <Header user={user} handleLogout={handleLogout} setAuthOpen={setAuthOpen} />
+              <Hero />
+              <TrustBadges />
+              <Features />
+              <HowItWorks />
+              <WhyNexaCred />
+              <CTA />
+              <Footer />
+            </main>
+          }
+        />
+      </Routes>
     </>
   );
 }
