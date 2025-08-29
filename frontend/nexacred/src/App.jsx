@@ -11,6 +11,7 @@ import WhyNexaCred from "./components/WhyNexaCred";
 import CTA from "./components/CTA";
 import Footer from "./components/Footer";
 import Dashboard from "./pages/Dashboard";
+import DemoBanner from "./components/DemoBanner";
 
 export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
@@ -25,7 +26,15 @@ export default function App() {
   // Register API
   const handleRegister = async (form) => {
     try {
-      const res = await fetch('/api/users/register', {
+      // In demo mode, simulate successful registration
+      if (import.meta.env.VITE_ENABLE_DEMO_MODE === 'true') {
+        alert('Demo Mode: Registration successful! Please login.');
+        setAuthOpen(true);
+        return;
+      }
+      
+      const apiUrl = import.meta.env.VITE_API_URL || '/api';
+      const res = await fetch(`${apiUrl}/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
@@ -58,7 +67,26 @@ export default function App() {
         return;
       } else {
         // Traditional username/password authentication
-        res = await fetch('/api/users/login', {
+        if (import.meta.env.VITE_ENABLE_DEMO_MODE === 'true') {
+          // Demo mode: simulate successful login
+          const demoUser = {
+            _id: 'demo-user-123',
+            username: loginData.username,
+            email: `${loginData.username}@demo.nexacred.com`,
+            firstName: 'Demo',
+            lastName: 'User'
+          };
+          setToken('demo-token-123');
+          localStorage.setItem('token', 'demo-token-123');
+          setUser(demoUser);
+          setWalletUser(null);
+          setAuthOpen(false);
+          navigate('/dashboard');
+          return;
+        }
+        
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        res = await fetch(`${apiUrl}/users/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: loginData.username, password: loginData.password })
@@ -114,6 +142,7 @@ export default function App() {
           path="/"
           element={
             <main className="min-h-screen bg-gradient-to-b from-black via-gray-900 to-gray-950 text-white">
+              <DemoBanner />
               <Header user={user} handleLogout={handleLogout} setAuthOpen={setAuthOpen} />
               <Hero />
               <TrustBadges />
