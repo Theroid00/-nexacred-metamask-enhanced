@@ -8,7 +8,8 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from database import MongoDBAtlasConnector
-from ibm_client import IBMGraniteClient
+from replicate_client import ReplicateGraniteClient
+from conversation_memory import ConversationMemory
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,9 @@ class RAGPipeline:
     def __init__(self):
         """Initialize RAG pipeline components."""
         self.db_connector: Optional[MongoDBAtlasConnector] = None
-        self.ibm_client: Optional[IBMGraniteClient] = None
+        self.replicate_client: Optional[ReplicateGraniteClient] = None
         self.embedder: Optional[SentenceTransformer] = None
+        self.conversation_memory: ConversationMemory = ConversationMemory()
         self._initialize_components()
     
     def _initialize_components(self) -> None:
@@ -35,9 +37,12 @@ class RAGPipeline:
             self.db_connector = MongoDBAtlasConnector()
             logger.info("MongoDB Atlas connector initialized")
             
-            # Initialize IBM Granite client
-            self.ibm_client = IBMGraniteClient()
-            logger.info("IBM Granite client initialized")
+            # Initialize Replicate client
+            self.replicate_client = ReplicateGraniteClient()
+            logger.info("Replicate Granite client initialized")
+            
+            # Initialize conversation memory
+            logger.info("Conversation memory initialized")
             
             logger.info("RAG pipeline successfully initialized")
             
@@ -47,7 +52,7 @@ class RAGPipeline:
     
     def process_query(self, user_query: str) -> Dict[str, Any]:
         """
-        Process user query through the complete RAG pipeline.
+        Process user query through the complete RAG pipeline with conversation context.
         
         Args:
             user_query: User's question or query
@@ -58,6 +63,9 @@ class RAGPipeline:
         try:
             logger.info(f"Processing query: {user_query[:100]}...")
             
+            # Analyze query for context indicators
+            context_indicators = self.conversation_memory.get_context_indicators(user_query)
+            
             # Step 1: Generate query embedding
             query_embedding = self._generate_query_embedding(user_query)
             
@@ -67,8 +75,29 @@ class RAGPipeline:
             # Step 3: Extract text content from retrieved documents
             context_texts = self._extract_context_texts(retrieved_docs)
             
-            # Step 4: Generate response using IBM Granite
-            response = self._generate_response(user_query, context_texts)
+            # Step 4: Get conversation context if needed
+            conversation_context = ""
+            if self.conversation_memory.has_context():
+                if context_indicators["needs_context"]:
+                    # Use related context for contextual queries
+                    conversation_context = self.conversation_memory.find_related_context(user_query)
+                else:
+                    # Use recent context for continuity
+                    conversation_context = self.conversation_memory.get_conversation_context(include_last_n=2)
+            
+            # Step 5: Generate response using IBM Granite with all context
+            response = self._generate_response(user_query, context_texts, conversation_context)
+            
+            # Step 6: Store this exchange in conversation memory
+            self.conversation_memory.add_exchange(
+                user_query=user_query,
+                assistant_response=response,
+                metadata={
+                    "retrieved_documents": len(retrieved_docs),
+                    "used_conversation_context": bool(conversation_context),
+                    "context_indicators": context_indicators
+                }
+            )
             
             # Prepare result
             result = {
@@ -76,10 +105,13 @@ class RAGPipeline:
                 "response": response,
                 "retrieved_documents": len(retrieved_docs),
                 "context_used": len(context_texts) > 0,
-                "sources": self._extract_source_info(retrieved_docs)
+                "conversation_context_used": bool(conversation_context),
+                "sources": self._extract_source_info(retrieved_docs),
+                "context_indicators": context_indicators
             }
             
-            logger.info(f"Query processed successfully. Retrieved {len(retrieved_docs)} documents")
+            logger.info(f"Query processed successfully. Retrieved {len(retrieved_docs)} documents, "
+                       f"conversation context: {bool(conversation_context)}")
             
             return result
             
@@ -90,6 +122,7 @@ class RAGPipeline:
                 "response": f"I apologize, but I encountered an error while processing your question: {str(e)}",
                 "retrieved_documents": 0,
                 "context_used": False,
+                "conversation_context_used": False,
                 "sources": [],
                 "error": str(e)
             }
@@ -155,24 +188,27 @@ class RAGPipeline:
             logger.error(f"Error extracting context texts: {e}")
             return []
     
-    def _generate_response(self, query: str, context_texts: Optional[List[str]]) -> str:
+    def _generate_response(self, query: str, context_texts: Optional[List[str]], 
+                          conversation_context: Optional[str] = None) -> str:
         """
-        Generate response using IBM Granite with context.
+        Generate response using IBM Granite via Replicate with context and conversation history.
         
         Args:
             query: User query
             context_texts: Retrieved context texts
+            conversation_context: Previous conversation context
             
         Returns:
             Generated response
         """
-        if not self.ibm_client:
-            raise RuntimeError("IBM Granite client not initialized")
+        if not self.replicate_client:
+            raise RuntimeError("Replicate Granite client not initialized")
         
         try:
-            return self.ibm_client.generate_response(
+            return self.replicate_client.generate_response(
                 prompt=query,
-                context_documents=context_texts if context_texts else None
+                context_documents=context_texts if context_texts else None,
+                conversation_context=conversation_context
             )
         except Exception as e:
             logger.error(f"Error generating response: {e}")
@@ -213,7 +249,7 @@ class RAGPipeline:
         health = {
             "embedder": self.embedder is not None,
             "database": False,
-            "ibm_client": False
+            "granite_client": False
         }
         
         try:
@@ -223,12 +259,25 @@ class RAGPipeline:
             health["database"] = False
         
         try:
-            if self.ibm_client:
-                health["ibm_client"] = self.ibm_client.health_check()
+            if self.replicate_client:
+                health["granite_client"] = self.replicate_client.health_check()
         except:
-            health["ibm_client"] = False
+            health["granite_client"] = False
         
         return health
+    
+    def get_conversation_summary(self) -> Dict[str, Any]:
+        """Get conversation summary."""
+        return self.conversation_memory.get_conversation_summary()
+    
+    def clear_conversation(self) -> None:
+        """Clear conversation history."""
+        self.conversation_memory.clear_history()
+        logger.info("Conversation history cleared")
+    
+    def export_conversation(self, filepath: Optional[str] = None) -> str:
+        """Export conversation history."""
+        return self.conversation_memory.export_conversation(filepath)
     
     def close(self) -> None:
         """Close all connections and cleanup resources."""
