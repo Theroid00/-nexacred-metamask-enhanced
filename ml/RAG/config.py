@@ -14,10 +14,9 @@ load_dotenv()
 class Config:
     """Configuration class for RAG chatbot settings."""
     
-    # IBM Watson AI Configuration
-    IBM_API_KEY: str = os.getenv("IBM_API_KEY", "")
-    IBM_URL: str = os.getenv("IBM_URL", "https://us-south.ml.cloud.ibm.com")
-    IBM_PROJECT_ID: str = os.getenv("IBM_PROJECT_ID", "")
+    # Replicate AI Configuration  
+    REPLICATE_API_TOKEN: str = os.getenv("REPLICATE_API_TOKEN", "r8_5tiCkDeDCv1j1zykH46zcsugv1cOu202WB3kQ")
+    REPLICATE_MODEL: str = os.getenv("REPLICATE_MODEL", "ibm-granite/granite-3.3-8b-instruct")
     
     # MongoDB Atlas Configuration
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
@@ -43,10 +42,8 @@ class Config:
         """
         missing_keys = []
         
-        if not cls.IBM_API_KEY:
-            missing_keys.append("IBM_API_KEY")
-        if not cls.IBM_PROJECT_ID:
-            missing_keys.append("IBM_PROJECT_ID")
+        if not cls.REPLICATE_API_TOKEN:
+            missing_keys.append("REPLICATE_API_TOKEN")
         if not cls.MONGODB_URI:
             missing_keys.append("MONGODB_URI")
             
