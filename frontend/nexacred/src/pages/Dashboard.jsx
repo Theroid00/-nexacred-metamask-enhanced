@@ -20,6 +20,7 @@ export default function Dashboard({ user, onUserUpdate }) {
   // Lender notification state
   const [pendingRequests, setPendingRequests] = useState(0);
   const [lendingRequests, setLendingRequests] = useState([]);
+  const [userHistory, setUserHistory] = useState([]);
   const [showLendingModal, setShowLendingModal] = useState(false);
 
 
@@ -30,6 +31,7 @@ export default function Dashboard({ user, onUserUpdate }) {
       .then(res => res.json())
       .then(data => {
         if (data.success) {
+          setUserHistory(data.history);
           const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
           setPendingRequests(pending.length);
           setLendingRequests(pending);
@@ -224,11 +226,11 @@ export default function Dashboard({ user, onUserUpdate }) {
         </h2>
         <div className="space-y-4 text-lg leading-relaxed text-gray-200">
           <div className="font-semibold text-gray-400 mb-2">Lending History</div>
-          {lendingRequests.filter(r => r.status === 'approved').length === 0 ? (
+          {userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id).length === 0 ? (
             <div className="bg-gray-800/70 rounded-lg p-4">No lending history yet.</div>
           ) : (
             <ul className="space-y-2">
-              {lendingRequests.filter(r => r.status === 'approved').map(r => (
+              {userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id).map(r => (
                 <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
                   <span className="font-semibold text-indigo-300">Borrower:</span> {r.borrower?.username || 'N/A'}<br />
                   <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
@@ -237,8 +239,18 @@ export default function Dashboard({ user, onUserUpdate }) {
             </ul>
           )}
           <div className="font-semibold text-gray-400 mt-6 mb-2">Borrowing History</div>
-          {/* You can add borrowing history here similarly if needed */}
-          <div className="bg-gray-800/70 rounded-lg p-4">No borrowing history yet.</div>
+          {userHistory.filter(r => r.status === 'approved' && r.borrower && r.borrower._id === user._id).length === 0 ? (
+            <div className="bg-gray-800/70 rounded-lg p-4">No borrowing history yet.</div>
+          ) : (
+            <ul className="space-y-2">
+              {userHistory.filter(r => r.status === 'approved' && r.borrower && r.borrower._id === user._id).map(r => (
+                <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
+                  <span className="font-semibold text-indigo-300">Lender:</span> {r.lender?.username || 'N/A'}<br />
+                  <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </aside>
 
