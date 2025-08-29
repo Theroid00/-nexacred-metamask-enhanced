@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend/nexacred
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+      - VITE_ANALYZER_URL=http://localhost:8000
+    depends_on:
+      - backend
+      - analyzer
+    networks:
+      - nexacred-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend/Backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - JWT_SECRET=dev_jwt_secret_key
+      - MONGODB_URI=mongodb://mongodb:27017/nexacred
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-demo_key}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend/Backend:/app
+      - /app/node_modules
+    networks:
+      - nexacred-network
+
+  # Transaction Analyzer Service
+  analyzer:
+    build:
+      context: ./backend/services
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY:-demo_key}
+      - JWT_SECRET=dev_jwt_secret_key
+    volumes:
+      - ./backend/services:/app
+    networks:
+      - nexacred-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=nexacred
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - nexacred-network
+
+  # Redis Cache (for session management)
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - nexacred-network
+
+  # Blockchain Node (Optional - for local development)
+  hardhat-node:
+    build:
+      context: ./blockchain
+      dockerfile: Dockerfile.node
+    ports:
+      - "8545:8545"
+    environment:
+      - HARDHAT_NETWORK=localhost
+    volumes:
+      - ./blockchain:/app
+      - /app/node_modules
+    networks:
+      - nexacred-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  nexacred-network:
+    driver: bridge

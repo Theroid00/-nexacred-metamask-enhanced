@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Frontend Service (Production)
+  frontend:
+    build:
+      context: ./frontend/nexacred
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=${API_URL}
+      - VITE_ANALYZER_URL=${ANALYZER_URL}
+    restart: unless-stopped
+    networks:
+      - nexacred-network
+
+  # Backend API Service (Production)
+  backend:
+    build:
+      context: ./backend/Backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGODB_URI=${MONGODB_URI}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    networks:
+      - nexacred-network
+
+  # Transaction Analyzer Service (Production)
+  analyzer:
+    build:
+      context: ./backend/services
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    networks:
+      - nexacred-network
+
+  # Load Balancer (Nginx)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+      - analyzer
+    restart: unless-stopped
+    networks:
+      - nexacred-network
+
+networks:
+  nexacred-network:
+    driver: overlay
+    attachable: true
