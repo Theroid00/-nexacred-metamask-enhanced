@@ -6,6 +6,10 @@ import RiskReport from '../components/RiskReport';
 
 export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
   // ...existing state...
+  // For animated dropdowns in history
+  const [showAllLending, setShowAllLending] = useState(false);
+  const [showAllBorrowing, setShowAllBorrowing] = useState(false);
+  // ...existing state...
   const [isChatOpen, setIsChatOpen] = useState(false);
   // Chatbot UI state
   const [chatbotOpen, setChatbotOpen] = useState(false);
@@ -275,27 +279,89 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           {userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id).length === 0 ? (
             <div className="bg-gray-800/70 rounded-lg p-4">No lending history yet.</div>
           ) : (
-            <ul className="space-y-2">
-              {userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id).map(r => (
-                <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
-                  <span className="font-semibold text-indigo-300">Borrower:</span> {r.borrower?.username || 'N/A'}<br />
-                  <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
-                </li>
-              ))}
-            </ul>
+            (() => {
+              const lendingRows = userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id);
+              const showDropdown = lendingRows.length > 2;
+              return (
+                <>
+                  <ul className="space-y-2">
+                    {lendingRows.slice(0, 2).map(r => (
+                      <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
+                        <span className="font-semibold text-indigo-300">Borrower:</span> {r.borrower?.username || 'N/A'}<br />
+                        <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
+                      </li>
+                    ))}
+                  </ul>
+                  {showDropdown && (
+                    <div className="mt-2">
+                      <button
+                        className="w-full py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-lg shadow hover:from-blue-400 hover:to-purple-400 transition"
+                        onClick={() => setShowAllLending(v => !v)}
+                      >
+                        {showAllLending ? 'Show Less' : `Show ${lendingRows.length - 2} More`}
+                      </button>
+                      <div
+                        className={`overflow-hidden transition-all duration-500 ${showAllLending ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                        style={{ willChange: 'max-height, opacity' }}
+                      >
+                        <ul className="space-y-2 mt-2">
+                          {lendingRows.slice(2).map(r => (
+                            <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
+                              <span className="font-semibold text-indigo-300">Borrower:</span> {r.borrower?.username || 'N/A'}<br />
+                              <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           )}
           <div className="font-semibold text-gray-400 mt-6 mb-2">Borrowing History</div>
           {userHistory.filter(r => r.status === 'approved' && r.borrower && r.borrower._id === user._id).length === 0 ? (
             <div className="bg-gray-800/70 rounded-lg p-4">No borrowing history yet.</div>
           ) : (
-            <ul className="space-y-2">
-              {userHistory.filter(r => r.status === 'approved' && r.borrower && r.borrower._id === user._id).map(r => (
-                <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
-                  <span className="font-semibold text-indigo-300">Lender:</span> {r.lender?.username || 'N/A'}<br />
-                  <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
-                </li>
-              ))}
-            </ul>
+            (() => {
+              const borrowingRows = userHistory.filter(r => r.status === 'approved' && r.borrower && r.borrower._id === user._id);
+              const showDropdown = borrowingRows.length > 2;
+              return (
+                <>
+                  <ul className="space-y-2">
+                    {borrowingRows.slice(0, 2).map(r => (
+                      <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
+                        <span className="font-semibold text-indigo-300">Lender:</span> {r.lender?.username || 'N/A'}<br />
+                        <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
+                      </li>
+                    ))}
+                  </ul>
+                  {showDropdown && (
+                    <div className="mt-2">
+                      <button
+                        className="w-full py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg shadow hover:from-purple-400 hover:to-blue-400 transition"
+                        onClick={() => setShowAllBorrowing(v => !v)}
+                      >
+                        {showAllBorrowing ? 'Show Less' : `Show ${borrowingRows.length - 2} More`}
+                      </button>
+                      <div
+                        className={`overflow-hidden transition-all duration-500 ${showAllBorrowing ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                        style={{ willChange: 'max-height, opacity' }}
+                      >
+                        <ul className="space-y-2 mt-2">
+                          {borrowingRows.slice(2).map(r => (
+                            <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
+                              <span className="font-semibold text-indigo-300">Lender:</span> {r.lender?.username || 'N/A'}<br />
+                              <span className="font-semibold text-indigo-300">Amount:</span> ₹{r.amount}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()
           )}
           </div>
         </div>
