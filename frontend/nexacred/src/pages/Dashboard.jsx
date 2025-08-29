@@ -5,6 +5,15 @@ import WalletConnection from '../components/WalletConnection';
 import RiskReport from '../components/RiskReport';
 
 export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
+  // Chatbot input state
+  const [chatInput, setChatInput] = useState("");
+  // ...existing state...
+  // Borrower profile modal state
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileModalUser, setProfileModalUser] = useState(null);
+  const [profileModalLoading, setProfileModalLoading] = useState(false);
+  const [profileModalHistory, setProfileModalHistory] = useState([]);
+  const [profileModalHistoryLoading, setProfileModalHistoryLoading] = useState(false);
   // ...existing state...
   // For animated dropdowns in history
   const [showAllLending, setShowAllLending] = useState(false);
@@ -165,6 +174,19 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
         </h2>
 
         <div className="space-y-4 text-lg leading-relaxed text-gray-200">
+          {/* Credit Score Highlight */}
+          <div className="my-6 flex flex-col items-center justify-center">
+            <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Credit Score</div>
+            <div className="relative flex items-center justify-center">
+              <div className="bg-gradient-to-tr from-yellow-400 via-pink-400 to-purple-500 rounded-full p-1 shadow-lg">
+                <div className="bg-gray-900 rounded-full px-8 py-4 flex flex-col items-center justify-center min-w-[120px]">
+                  <span className="text-4xl font-extrabold text-yellow-400 drop-shadow-lg">{user.existingCreditScore ?? 'N/A'}</span>
+                  <span className="text-xs text-gray-300 mt-1"></span>
+                </div>
+              </div>
+              <svg className="absolute -top-3 -right-3 animate-pulse" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke="#fbbf24" strokeWidth="2" fill="none" /></svg>
+            </div>
+          </div>
           <div><span className="font-semibold text-indigo-300">👤 Username:</span> {user.username}</div>
           <div><span className="font-semibold text-indigo-300">📝 Name:</span> {user.firstName} {user.middleName} {user.lastName}</div>
           <div><span className="font-semibold text-indigo-300">🌍 Country:</span> {user.country}</div>
@@ -301,10 +323,10 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                         {showAllLending ? 'Show Less' : `Show ${lendingRows.length - 2} More`}
                       </button>
                       <div
-                        className={`overflow-hidden transition-all duration-500 ${showAllLending ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                        className={`overflow-hidden transition-all duration-500 ${showAllLending ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}
                         style={{ willChange: 'max-height, opacity' }}
                       >
-                        <ul className="space-y-2 mt-2">
+                        <ul className="space-y-2 mt-2 max-h-64 overflow-y-auto pr-2 scrollbar-none hover:scrollbar-thin hover:scrollbar-thumb-indigo-400/60 hover:scrollbar-track-gray-900 transition-all duration-200">
                           {lendingRows.slice(2).map(r => (
                             <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
                               <span className="font-semibold text-indigo-300">Borrower:</span> {r.borrower?.username || 'N/A'}<br />
@@ -345,10 +367,10 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                         {showAllBorrowing ? 'Show Less' : `Show ${borrowingRows.length - 2} More`}
                       </button>
                       <div
-                        className={`overflow-hidden transition-all duration-500 ${showAllBorrowing ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+                        className={`overflow-hidden transition-all duration-500 ${showAllBorrowing ? 'max-h-64 opacity-100' : 'max-h-0 opacity-0'}`}
                         style={{ willChange: 'max-height, opacity' }}
                       >
-                        <ul className="space-y-2 mt-2">
+                        <ul className="space-y-2 mt-2 max-h-64 overflow-y-auto pr-2 scrollbar-none hover:scrollbar-thin hover:scrollbar-thumb-indigo-400/60 hover:scrollbar-track-gray-900 transition-all duration-200">
                           {borrowingRows.slice(2).map(r => (
                             <li key={r._id} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1">
                               <span className="font-semibold text-indigo-300">Lender:</span> {r.lender?.username || 'N/A'}<br />
@@ -671,7 +693,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
       {showLendingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 transition-opacity duration-200 opacity-100" style={{ pointerEvents: 'auto' }}>
           <div className="bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col gap-4 border border-blue-400 ring-4 ring-blue-300/60 ring-offset-2 ring-offset-blue-100 relative transform transition-all duration-200 scale-100">
-            <button type="button" onClick={handleCloseLendingModal} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+            <button type="button" onClick={handleCloseLendingModal} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold cursor-pointer">&times;</button>
             <h3 className="text-2xl font-bold mb-2 text-center">Lending Requests</h3>
             {lendingRequests.length === 0 ? (
               <div className="text-gray-400 text-center">No pending requests.</div>
@@ -684,38 +706,90 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                       <span className="font-semibold text-indigo-300">Amount:</span> ₹{req.amount}
                     </div>
                     <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                      <a
-                        href={`/profile/${req.borrower?._id}`}
+                      <button
+                        type="button"
                         className="text-blue-400 font-semibold underline hover:text-blue-300 transition text-lg"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={async () => {
+                          setProfileModalLoading(true);
+                          setProfileModalOpen(true);
+                          setProfileModalHistory([]);
+                          setProfileModalHistoryLoading(true);
+                          try {
+                            const res = await fetch(`/api/users/${req.borrower?._id}`);
+                            if (res.ok) {
+                              const data = await res.json();
+                              setProfileModalUser(data || null);
+                              // Fetch history for this user
+                              const hres = await fetch(`/api/history/user/${req.borrower?._id}`);
+                              if (hres.ok) {
+                                const hdata = await hres.json();
+                                setProfileModalHistory(hdata.history || []);
+                              } else {
+                                setProfileModalHistory([]);
+                              }
+                            } else {
+                              setProfileModalUser(null);
+                              setProfileModalHistory([]);
+                            }
+                          } catch {
+                            setProfileModalUser(null);
+                            setProfileModalHistory([]);
+                          } finally {
+                            setProfileModalLoading(false);
+                            setProfileModalHistoryLoading(false);
+                          }
+                        }}
                       >
                         Details
-                      </a>
+                      </button>
                       {req.status === 'pending' && (
-                        <button
-                          className="py-1 px-3 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold rounded-md shadow text-sm transition transform hover:scale-105 border border-green-300 cursor-pointer"
-                          style={{ minWidth: 70 }}
-                          onClick={async () => {
-                            await fetch(`/api/history/${req._id}/status`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ status: 'approved' })
-                            });
-                            // Refresh requests
-                            fetch(`/api/history/user/${user._id}`)
-                              .then(res => res.json())
-                              .then(data => {
-                                if (data.success) {
-                                  const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
-                                  setPendingRequests(pending.length);
-                                  setLendingRequests(pending);
-                                }
+                        <div className="flex gap-2">
+                          <button
+                            className="py-1 px-3 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold rounded-md shadow text-sm transition transform hover:scale-105 border border-green-300 cursor-pointer"
+                            style={{ minWidth: 70 }}
+                            onClick={async () => {
+                              await fetch(`/api/history/${req._id}/status`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'approved' })
                               });
-                          }}
-                        >
-                          Accept
-                        </button>
+                              fetch(`/api/history/user/${user._id}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                  if (data.success) {
+                                    const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
+                                    setPendingRequests(pending.length);
+                                    setLendingRequests(pending);
+                                  }
+                                });
+                            }}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            className="py-1 px-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-400 hover:to-pink-400 text-white font-bold rounded-md shadow text-sm transition transform hover:scale-105 border border-red-300 cursor-pointer"
+                            style={{ minWidth: 70 }}
+                            onClick={async () => {
+                              setLendingRequests(prev => prev.filter(r => r._id !== req._id));
+                              await fetch(`/api/history/${req._id}/status`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'rejected' })
+                              });
+                              fetch(`/api/history/user/${user._id}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                  if (data.success) {
+                                    const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
+                                    setPendingRequests(pending.length);
+                                    setLendingRequests(pending);
+                                  }
+                                });
+                            }}
+                          >
+                            Deny
+                          </button>
+                        </div>
                       )}
                     </div>
                   </li>
@@ -725,6 +799,67 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           </div>
         </div>
       )}
+    {/* Borrower Profile Modal */}
+    {profileModalOpen && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 transition-opacity duration-200">
+  <div className="bg-gray-900 rounded-2xl shadow-2xl border border-yellow-400 ring-4 ring-yellow-300/60 ring-offset-2 ring-offset-yellow-100 p-8 max-w-2xl w-full min-h-[420px] max-h-[90vh] relative animate-fadeInUp flex flex-col overflow-y-auto scrollbar-none [&::-webkit-scrollbar]:hidden">
+          <button onClick={() => setProfileModalOpen(false)} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold cursor-pointer">&times;</button>
+          <h3 className="text-2xl font-bold mb-4 text-center text-yellow-300">Borrower Profile</h3>
+          {profileModalLoading ? (
+            <div className="text-center text-gray-400 py-8">Loading...</div>
+          ) : profileModalUser ? (
+            <>
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-2xl font-bold text-indigo-300">{profileModalUser.firstName} {profileModalUser.middleName} {profileModalUser.lastName}</div>
+                <div className="text-gray-400 text-sm mb-2">@{profileModalUser.username}</div>
+                <div className="flex flex-col items-center my-2">
+                  <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Credit Score</div>
+                  <div className="relative flex items-center justify-center">
+                    <div className="bg-gradient-to-tr from-yellow-400 via-pink-400 to-purple-500 rounded-full p-1 shadow-lg">
+                      <div className="bg-gray-900 rounded-full px-8 py-4 flex flex-col items-center justify-center min-w-[120px]">
+                        <span className="text-4xl font-extrabold text-yellow-400 drop-shadow-lg">{profileModalUser.existingCreditScore ?? 'N/A'}</span>
+                      </div>
+                    </div>
+                    <svg className="absolute -top-3 -right-3 animate-pulse" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke="#fbbf24" strokeWidth="2" fill="none" /></svg>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 w-full text-left mt-2">
+                  <div><span className="font-semibold text-indigo-300">Email:</span> {profileModalUser.email}</div>
+                  <div><span className="font-semibold text-indigo-300">Phone:</span> {profileModalUser.phoneNumber}</div>
+                  <div><span className="font-semibold text-indigo-300">Country:</span> {profileModalUser.country}</div>
+                  <div><span className="font-semibold text-indigo-300">Employment:</span> {profileModalUser.employmentStatus}</div>
+                  <div><span className="font-semibold text-indigo-300">Monthly Income:</span> {profileModalUser.monthlyIncomeRange}</div>
+                  <div><span className="font-semibold text-indigo-300">Bank:</span> {profileModalUser.primaryBankName}</div>
+                </div>
+              </div>
+              {/* User History Section */}
+              <div className="mt-8 w-full">
+                <div className="text-lg font-bold text-indigo-300 mb-2">Transaction History</div>
+                {profileModalHistoryLoading ? (
+                  <div className="text-gray-400 text-sm">Loading history...</div>
+                ) : profileModalHistory.length === 0 ? (
+                  <div className="text-gray-500 text-sm">No history found.</div>
+                ) : (
+                  <ul className="space-y-2 pr-2 scrollbar-none transition-all duration-200">
+                    {profileModalHistory.map((h, idx) => (
+                      <li key={h._id || idx} className="bg-gray-800/70 rounded-lg p-3 flex flex-col gap-1 text-sm">
+                        <span className="font-semibold text-indigo-300">Type:</span> {h.type}<br />
+                        <span className="font-semibold text-indigo-300">Amount:</span> ₹{h.amount}<br />
+                        <span className="font-semibold text-indigo-300">Status:</span> {h.status}<br />
+                        <span className="font-semibold text-indigo-300">Date:</span> {h.requestDate ? new Date(h.requestDate).toLocaleDateString() : 'N/A'}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="text-center text-red-400 py-8">Unable to load profile.</div>
+          )}
+        </div>
+      </div>
+    )}
+
     {/* Chatbot Floating Button & Popup */}
     <div>
       {/* Floating Button */}
@@ -768,17 +903,17 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
             </div> */}
           </div>
           {/* Input Area */}
-          <form className="flex items-center gap-2 px-4 py-3 border-t border-gray-800 bg-gray-900 rounded-b-2xl">
+          <form className="flex items-center gap-2 px-4 py-3 border-t border-gray-800 bg-gray-900 rounded-b-2xl" onSubmit={e => { e.preventDefault(); /* Add send logic here if needed */ }}>
             <input
               type="text"
               placeholder="Type your message..."
               className="flex-1 p-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
-              // value={chatInput}
-              // onChange={e => setChatInput(e.target.value)}
-              disabled
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
             />
-            <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow transition" disabled>
+            <button type="submit" className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow transition" disabled={!chatInput.trim()}>
               Send
+              {/* Add pointer cursor */}
             </button>
           </form>
         </div>
