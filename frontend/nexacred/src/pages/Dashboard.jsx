@@ -5,9 +5,21 @@ import WalletConnection from '../components/WalletConnection';
 import RiskReport from '../components/RiskReport';
 
 export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
-  // Chatbot input state
+  // Chatbot state
+  const [chatbotOpen, setChatbotOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
-  // ...existing state...
+  const [chatMessages, setChatMessages] = useState([
+    {
+      id: 1,
+      type: 'bot',
+      message: "Hello! I'm your NexaCred AI assistant powered by advanced RAG technology. I can help you with questions about credit scoring, lending, financial information, and more. How can I assist you today?",
+      timestamp: new Date().toISOString()
+    }
+  ]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatStatus, setChatStatus] = useState('online'); // online, offline, processing
+  const [showChatbotIndicator, setShowChatbotIndicator] = useState(true);
+  
   // Borrower profile modal state
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileModalUser, setProfileModalUser] = useState(null);
@@ -20,8 +32,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
   const [showAllBorrowing, setShowAllBorrowing] = useState(false);
   // ...existing state...
   const [isChatOpen, setIsChatOpen] = useState(false);
-  // Chatbot UI state
-  const [chatbotOpen, setChatbotOpen] = useState(false);
+  // Edit form state
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(user || {});
   const [saving, setSaving] = useState(false);
@@ -164,6 +175,99 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
   // Lending requests modal
   const handleShowLendingModal = () => setShowLendingModal(true);
   const handleCloseLendingModal = () => setShowLendingModal(false);
+
+  // Chatbot functions
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || chatLoading) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setChatLoading(true);
+    setChatStatus('processing');
+
+    // Add user message to chat
+    const newUserMessage = {
+      id: Date.now(),
+      type: 'user',
+      message: userMessage,
+      timestamp: new Date().toISOString()
+    };
+    setChatMessages(prev => [...prev, newUserMessage]);
+
+    try {
+      // Call the RAG chatbot API
+      const response = await fetch('/api/chatbot/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query: userMessage,
+          userId: user._id
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Add bot response to chat
+        const botMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          message: data.data.response,
+          timestamp: data.data.timestamp,
+          retrievedDocuments: data.data.retrievedDocuments,
+          contextUsed: data.data.contextUsed,
+          sources: data.data.sources
+        };
+        setChatMessages(prev => [...prev, botMessage]);
+        setChatStatus('online');
+      } else {
+        // Handle error response
+        const errorMessage = {
+          id: Date.now() + 1,
+          type: 'bot',
+          message: data.data?.response || "I apologize, but I'm experiencing technical difficulties. Please try again.",
+          timestamp: new Date().toISOString(),
+          isError: true
+        };
+        setChatMessages(prev => [...prev, errorMessage]);
+        setChatStatus('online');
+      }
+    } catch (error) {
+      console.error('Chatbot error:', error);
+      // Add error message to chat
+      const errorMessage = {
+        id: Date.now() + 1,
+        type: 'bot',
+        message: "I apologize, but I'm having trouble connecting to my AI brain right now. Please try again in a moment.",
+        timestamp: new Date().toISOString(),
+        isError: true
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
+      setChatStatus('offline');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleChatbotOpen = () => {
+    setChatbotOpen(true);
+    setShowChatbotIndicator(false);
+  };
+
+  const handleChatbotClose = () => {
+    setChatbotOpen(false);
+  };
+
+  // Auto-scroll chat messages to bottom
+  React.useEffect(() => {
+    const chatContainer = document.getElementById('chatbot-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [chatMessages]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white font-inter">
@@ -395,8 +499,8 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           style={{ pointerEvents: 'auto' }}>
           <form
             onSubmit={handleEditSave}
-            className={`bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col gap-4 border border-yellow-400 ring-4 ring-yellow-300/60 ring-offset-2 ring-offset-yellow-100 relative transform transition-all duration-200 ${showModal ? 'scale-100 translate-y-0' : 'scale-90 translate-y-8'} scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900`}
-            style={{ zIndex: 100, maxHeight: '80vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#374151 #111827' }}
+            className={`bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col gap-4 border border-yellow-400 ring-4 ring-yellow-300/60 ring-offset-2 ring-offset-yellow-100 relative transform transition-all duration-200 ${showModal ? 'scale-100 translate-y-0' : 'scale-90 translate-y-8'} scrollbar-hide`}
+            style={{ zIndex: 100, maxHeight: '80vh', overflowY: 'auto' }}
           >
             <button type="button" onClick={handleCloseModal} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
             <h3 className="text-2xl font-bold mb-2 text-center">Edit Profile</h3>
@@ -862,19 +966,35 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
 
     {/* Chatbot Floating Button & Popup */}
     <div>
-      {/* Floating Button */}
+      {/* AI Feature Indicator */}
+      {showChatbotIndicator && !chatbotOpen && (
+        <div className="fixed bottom-20 right-6 z-[99] bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl shadow-lg animate-bounce">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+            AI Assistant Available
+          </div>
+        </div>
+      )}
+
+      {/* Floating Button with Status Indicator */}
       {!chatbotOpen && (
         <button
-          onClick={() => setChatbotOpen(true)}
+          onClick={handleChatbotOpen}
           className="fixed bottom-8 right-8 z-[100] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-2xl rounded-full p-0.5 hover:scale-105 transition-transform"
           style={{ width: 64, height: 64 }}
-          aria-label="Open Chatbot"
+          aria-label="Open AI Chatbot"
         >
           <div className="flex items-center justify-center w-full h-full bg-gray-900 rounded-full">
             <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-white">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
+          {/* Status indicator */}
+          <div className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-900 ${
+            chatStatus === 'online' ? 'bg-green-400' : 
+            chatStatus === 'processing' ? 'bg-yellow-400 animate-pulse' : 
+            'bg-red-400'
+          }`}></div>
         </button>
       )}
 
@@ -885,35 +1005,101 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-t-2xl">
             <span className="font-bold text-white text-lg flex items-center gap-2">
               <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="inline-block">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364-.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              NexaCred Chatbot
+              NexaCred AI Assistant
+              <span className={`w-2 h-2 rounded-full ${
+                chatStatus === 'online' ? 'bg-green-400' : 
+                chatStatus === 'processing' ? 'bg-yellow-400 animate-pulse' : 
+                'bg-red-400'
+              }`}></span>
             </span>
-            <button onClick={() => setChatbotOpen(false)} className="text-white text-2xl font-bold hover:text-gray-200 transition" aria-label="Close Chatbot">&times;</button>
+            <button onClick={handleChatbotClose} className="text-white text-2xl font-bold hover:text-gray-200 transition" aria-label="Close Chatbot">&times;</button>
           </div>
+          
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-950 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-gray-900" id="chatbot-messages">
-            {/* Example messages, replace with real chat logic */}
-            <div className="flex justify-start">
-              <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-bl-none max-w-[80%] shadow">Hi! How can I help you today?</div>
-            </div>
-            {/* User message example */}
-            {/* <div className="flex justify-end">
-              <div className="bg-gray-800 text-white px-4 py-2 rounded-2xl rounded-br-none max-w-[80%] shadow">I want to know my credit score.</div>
-            </div> */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-950 scrollbar-hide" id="chatbot-messages">
+            {chatMessages.map((message) => (
+              <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`px-4 py-2 rounded-2xl max-w-[80%] shadow ${
+                  message.type === 'user' 
+                    ? 'bg-gray-800 text-white rounded-br-none' 
+                    : message.isError 
+                      ? 'bg-red-600 text-white rounded-bl-none'
+                      : 'bg-blue-600 text-white rounded-bl-none'
+                }`}>
+                  <div className="break-words">{message.message}</div>
+                  {message.type === 'bot' && message.retrievedDocuments > 0 && (
+                    <div className="text-xs text-blue-200 mt-1 opacity-75">
+                      📚 Used {message.retrievedDocuments} knowledge sources
+                    </div>
+                  )}
+                  <div className="text-xs opacity-50 mt-1">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {/* Loading indicator */}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gray-700 text-white px-4 py-2 rounded-2xl rounded-bl-none max-w-[80%] shadow">
+                  <div className="flex items-center gap-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    </div>
+                    <span className="text-sm">AI is thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+          
           {/* Input Area */}
-          <form className="flex items-center gap-2 px-4 py-3 border-t border-gray-800 bg-gray-900 rounded-b-2xl" onSubmit={e => { e.preventDefault(); /* Add send logic here if needed */ }}>
-            <input
-              type="text"
-              placeholder="Type your message..."
-              className="flex-1 p-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+          <form className="flex items-start gap-2 px-4 py-3 border-t border-gray-800 bg-gray-900 rounded-b-2xl" onSubmit={handleSendMessage}>
+            <textarea
+              placeholder="Ask me anything about credit, finance, or NexaCred..."
+              className="flex-1 p-3 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder-gray-400 resize-none min-h-[44px] max-h-[120px] overflow-y-auto scrollbar-hide"
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (chatInput.trim() && !chatLoading) {
+                    handleSendMessage(e);
+                  }
+                }
+              }}
+              disabled={chatLoading}
+              rows={1}
+              style={{
+                height: 'auto',
+                minHeight: '44px',
+                maxHeight: '120px',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none'
+              }}
+              onInput={(e) => {
+                e.target.style.height = '44px';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              }}
             />
-            <button type="submit" className="cursor-pointer bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow transition" disabled={!chatInput.trim()}>
+            <button 
+              type="submit" 
+              className="cursor-pointer bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold px-4 py-2 rounded-lg shadow transition flex items-center gap-2 mt-1" 
+              disabled={!chatInput.trim() || chatLoading}
+            >
+              {chatLoading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              )}
               Send
-              {/* Add pointer cursor */}
             </button>
           </form>
         </div>
