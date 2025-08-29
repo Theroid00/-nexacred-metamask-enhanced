@@ -5,7 +5,10 @@ import WalletConnection from '../components/WalletConnection';
 import RiskReport from '../components/RiskReport';
 
 export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
+  // ...existing state...
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // Chatbot UI state
+  const [chatbotOpen, setChatbotOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(user || {});
   const [saving, setSaving] = useState(false);
@@ -304,29 +307,254 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           style={{ pointerEvents: 'auto' }}>
           <form
             onSubmit={handleEditSave}
-            className={`bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col gap-4 border border-yellow-400 ring-4 ring-yellow-300/60 ring-offset-2 ring-offset-yellow-100 relative transform transition-all duration-200 ${showModal ? 'scale-100 translate-y-0' : 'scale-90 translate-y-8'}`}
-            style={{ zIndex: 100 }}
+            className={`bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col gap-4 border border-yellow-400 ring-4 ring-yellow-300/60 ring-offset-2 ring-offset-yellow-100 relative transform transition-all duration-200 ${showModal ? 'scale-100 translate-y-0' : 'scale-90 translate-y-8'} scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900`}
+            style={{ zIndex: 100, maxHeight: '80vh', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: '#374151 #111827' }}
           >
             <button type="button" onClick={handleCloseModal} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
             <h3 className="text-2xl font-bold mb-2 text-center">Edit Profile</h3>
-            {/* ...existing code... */}
-            <input
-              name="fullName"
-              value={`${editForm.firstName || ''} ${editForm.middleName || ''} ${editForm.lastName || ''}`.replace(/ +/g, ' ').trim()}
-              onChange={e => {
-                const [firstName = '', middleName = '', ...lastArr] = e.target.value.split(' ');
-                setEditForm(f => ({
-                  ...f,
-                  firstName,
-                  middleName,
-                  lastName: lastArr.join(' ')
-                }));
-              }}
-              placeholder="Full Name (First Middle Last)"
-              className="p-2 rounded bg-gray-800 border border-gray-700 text-white"
-              required
-            />
-            {/* ...existing code... */}
+            {/* Personal Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">First Name</label>
+                <input name="firstName" value={editForm.firstName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Middle Name</label>
+                <input name="middleName" value={editForm.middleName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Last Name</label>
+                <input name="lastName" value={editForm.lastName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Father/Spouse Name</label>
+                <input name="fatherOrSpouseName" value={editForm.fatherOrSpouseName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Date of Birth</label>
+                <input name="dateOfBirth" type="date" value={editForm.dateOfBirth ? editForm.dateOfBirth.slice(0,10) : ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Phone Number</label>
+                <input name="phoneNumber" value={editForm.phoneNumber || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">PAN</label>
+                <input name="pan" value={editForm.pan || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Aadhaar</label>
+                <input name="aadhaar" value={editForm.aadhaar || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+            </div>
+
+            {/* Address Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Street Address</label>
+                <input name="streetAddress" value={editForm.streetAddress || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Area/Locality</label>
+                <input name="areaLocality" value={editForm.areaLocality || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">City</label>
+                <input name="city" value={editForm.city || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">State</label>
+                <input name="state" value={editForm.state || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Pin Code</label>
+                <input name="pinCode" value={editForm.pinCode || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Country</label>
+                <input name="country" value={editForm.country || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+            </div>
+
+            {/* Employment & Occupation Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Employment Status</label>
+                <select name="employmentStatus" value={editForm.employmentStatus || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required>
+                  <option value="">Select</option>
+                  <option>Salaried Employee</option>
+                  <option>Self-employed Professional</option>
+                  <option>Business Owner</option>
+                  <option>Farmer</option>
+                  <option>Student</option>
+                  <option>Housewife/Homemaker</option>
+                  <option>Retired</option>
+                  <option>Unemployed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Occupation Category</label>
+                <select name="occupationCategory" value={editForm.occupationCategory || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required>
+                  <option value="">Select</option>
+                  <option>Government Employee</option>
+                  <option>Private Sector Employee</option>
+                  <option>Public Sector Employee</option>
+                  <option>Doctor/Medical Professional</option>
+                  <option>Engineer/IT Professional</option>
+                  <option>Teacher/Professor</option>
+                  <option>Lawyer/Legal Professional</option>
+                  <option>Chartered Accountant/CA</option>
+                  <option>Architect</option>
+                  <option>Consultant</option>
+                  <option>Trader/Merchant</option>
+                  <option>Manufacturer</option>
+                  <option>Contractor</option>
+                  <option>Farmer/Agriculture</option>
+                  <option>Driver/Transport</option>
+                  <option>Shopkeeper/Retailer</option>
+                  <option>Freelancer</option>
+                  <option>Other Professional</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Company Name</label>
+                <input name="companyName" value={editForm.companyName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Years of Experience</label>
+                <input name="yearsOfExperience" type="number" min="0" value={editForm.yearsOfExperience || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Monthly Income Range</label>
+                <select name="monthlyIncomeRange" value={editForm.monthlyIncomeRange || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required>
+                  <option value="">Select</option>
+                  <option>Below ₹25,000</option>
+                  <option>₹25,000 - ₹50,000</option>
+                  <option>₹50,000 - ₹1,00,000</option>
+                  <option>₹1,00,000 - ₹2,00,000</option>
+                  <option>₹2,00,000 - ₹5,00,000</option>
+                  <option>Above ₹5,00,000</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Financial Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Has Credit Accounts?</label>
+                <input name="hasCreditAccounts" type="checkbox" checked={!!editForm.hasCreditAccounts} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Credit Purpose</label>
+                <select name="creditPurpose" value={editForm.creditPurpose || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required>
+                  <option value="">Select</option>
+                  <option>Personal Loan</option>
+                  <option>Credit Card</option>
+                  <option>Home Loan</option>
+                  <option>Car Loan</option>
+                  <option>Education Loan</option>
+                  <option>Business Loan</option>
+                  <option>Gold Loan</option>
+                  <option>Two-Wheeler Loan</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Has Bank Account?</label>
+                <input name="hasBankAccount" type="checkbox" checked={!!editForm.hasBankAccount} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Primary Bank Name</label>
+                <input name="primaryBankName" value={editForm.primaryBankName || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Existing Credit Score</label>
+                <input name="existingCreditScore" type="number" min="0" value={editForm.existingCreditScore || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required />
+              </div>
+            </div>
+
+            {/* Legal & Compliance */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Terms Accepted</label>
+                <input name="termsAccepted" type="checkbox" checked={!!editForm.termsAccepted} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Privacy Policy Accepted</label>
+                <input name="privacyPolicyAccepted" type="checkbox" checked={!!editForm.privacyPolicyAccepted} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Consent Credit Bureau</label>
+                <input name="consentCreditBureau" type="checkbox" checked={!!editForm.consentCreditBureau} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Age Verified</label>
+                <input name="ageVerified" type="checkbox" checked={!!editForm.ageVerified} onChange={handleEditChange} className="mr-2" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">ITR Status</label>
+                <select name="itrStatus" value={editForm.itrStatus || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" required>
+                  <option value="">Select</option>
+                  <option>Yes, regularly file ITR</option>
+                  <option>Filed ITR in past 2 years</option>
+                  <option>Never filed ITR</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Optional Fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-semibold mb-1">Educational Qualification</label>
+                <select name="educationalQualification" value={editForm.educationalQualification || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full">
+                  <option value="">Select</option>
+                  <option>Below 10th</option>
+                  <option>10th Pass</option>
+                  <option>12th Pass</option>
+                  <option>Graduate</option>
+                  <option>Post Graduate</option>
+                  <option>Professional Degree</option>
+                  <option>Doctorate</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Language Preference</label>
+                <select name="languagePreference" value={editForm.languagePreference || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full">
+                  <option value="">Select</option>
+                  <option>English</option>
+                  <option>Hindi</option>
+                  <option>Regional</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Communication Method</label>
+                <select name="communicationMethod" value={editForm.communicationMethod || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full">
+                  <option value="">Select</option>
+                  <option>SMS</option>
+                  <option>Email</option>
+                  <option>WhatsApp</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Marital Status</label>
+                <select name="maritalStatus" value={editForm.maritalStatus || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full">
+                  <option value="">Select</option>
+                  <option>Single</option>
+                  <option>Married</option>
+                  <option>Divorced</option>
+                  <option>Widowed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-1">Number of Dependents</label>
+                <input name="numberOfDependents" type="number" min="0" value={editForm.numberOfDependents || ''} onChange={handleEditChange} className="p-2 rounded bg-gray-800 border border-gray-700 text-white w-full" />
+              </div>
+            </div>
+
+            <button type="submit" className="w-full py-3 mt-4 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-gray-900 font-bold rounded-lg shadow-lg text-lg transition disabled:opacity-60" disabled={saving}>
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
           </form>
         </div>
       )}
@@ -431,6 +659,65 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           </div>
         </div>
       )}
+    {/* Chatbot Floating Button & Popup */}
+    <div>
+      {/* Floating Button */}
+      {!chatbotOpen && (
+        <button
+          onClick={() => setChatbotOpen(true)}
+          className="fixed bottom-8 right-8 z-[100] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-2xl rounded-full p-0.5 hover:scale-105 transition-transform"
+          style={{ width: 64, height: 64 }}
+          aria-label="Open Chatbot"
+        >
+          <div className="flex items-center justify-center w-full h-full bg-gray-900 rounded-full">
+            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-white">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
+        </button>
+      )}
+
+      {/* Chatbot Popup */}
+      {chatbotOpen && (
+        <div className="fixed bottom-6 right-6 z-[101] w-full max-w-md md:max-w-lg bg-gray-900 rounded-2xl shadow-2xl border border-blue-400 ring-4 ring-blue-300/60 ring-offset-2 ring-offset-blue-100 flex flex-col" style={{ height: '70vh' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-t-2xl">
+            <span className="font-bold text-white text-lg flex items-center gap-2">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="inline-block">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+              NexaCred Chatbot
+            </span>
+            <button onClick={() => setChatbotOpen(false)} className="text-white text-2xl font-bold hover:text-gray-200 transition" aria-label="Close Chatbot">&times;</button>
+          </div>
+          {/* Chat Area */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-950 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-gray-900" id="chatbot-messages">
+            {/* Example messages, replace with real chat logic */}
+            <div className="flex justify-start">
+              <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl rounded-bl-none max-w-[80%] shadow">Hi! How can I help you today?</div>
+            </div>
+            {/* User message example */}
+            {/* <div className="flex justify-end">
+              <div className="bg-gray-800 text-white px-4 py-2 rounded-2xl rounded-br-none max-w-[80%] shadow">I want to know my credit score.</div>
+            </div> */}
+          </div>
+          {/* Input Area */}
+          <form className="flex items-center gap-2 px-4 py-3 border-t border-gray-800 bg-gray-900 rounded-b-2xl">
+            <input
+              type="text"
+              placeholder="Type your message..."
+              className="flex-1 p-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+              // value={chatInput}
+              // onChange={e => setChatInput(e.target.value)}
+              disabled
+            />
+            <button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow transition" disabled>
+              Send
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
     </div>
   );
 }
