@@ -1,26 +1,11 @@
-# RAG Chatbot - IBM Granite AI & MongoDB Atlas
+# RAG Chatbot - IBM Granite on Replicate & MongoDB Atlas
 
-A powerful Retrieval-Augmented Generation (RAG) chatbot that combines IBM Granite AI foundation models with MongoDB Atlas vector search capabilities. This terminal-based chatbot provides intelli## 📊 Performance Tips
-
-1. **Optimize Retrieval**:
-   - Adjust `TOP_K_RESULTS` based on your needs (3-5 works well for 8B model)
-   - Fine-tune `SIMILARITY_THRESHOLD` for your domain
-   - Consider preprocessing queries for better matching
-
-2. **Optimize Generation (8B Model)**:
-   - Use `MAX_TOKENS=256` for faster responses (8B models are efficient with shorter outputs)
-   - Set `TEMPERATURE=0.6` for good balance of creativity and consistency
-   - The 8B model excels at concise, focused responses
-
-3. **MongoDB Optimization**:ize Generation**:
-   - Adjust `MAX_TOKENS` based on desired response length
-   - Tune `TEMPERATURE` for creativity vs. consistency
-   - Experiment with different IBM Granite modelssponses by retrieving relevant context from your document knowledge base.
+A powerful Retrieval-Augmented Generation (RAG) chatbot that combines IBM Granite AI foundation models hosted on Replicate with MongoDB Atlas vector search capabilities. This terminal-based chatbot provides intelligent responses by retrieving relevant context from your document knowledge base.
 
 ## 🚀 Features
 
 - **Intelligent Retrieval**: Uses MongoDB Atlas Vector Search to find relevant documents
-- **Powerful Generation**: Leverages IBM Granite foundation models for response generation
+- **Powerful Generation**: Leverages IBM Granite foundation models hosted on Replicate for response generation
 - **Interactive Terminal**: Beautiful, user-friendly terminal interface with rich formatting
 - **Health Monitoring**: Built-in health checks for all system components
 - **Configurable**: Easy configuration through environment variables
@@ -29,7 +14,7 @@ A powerful Retrieval-Augmented Generation (RAG) chatbot that combines IBM Granit
 ## 📋 Prerequisites
 
 - Python 3.8 or higher
-- IBM Cloud account with watsonx.ai access
+- Replicate account with API access
 - MongoDB Atlas cluster with vector search enabled
 - Documents already uploaded as vector embeddings in MongoDB Atlas
 
@@ -52,10 +37,9 @@ pip install -r requirements.txt
 Edit the `.env` file with your actual credentials:
 
 ```bash
-# IBM watsonx.ai Configuration
-IBM_API_KEY=your_actual_ibm_api_key_here
-IBM_URL=https://us-south.ml.cloud.ibm.com
-IBM_PROJECT_ID=your_actual_ibm_project_id_here
+# Replicate AI Configuration
+REPLICATE_API_TOKEN=r8_5tiCkDeDCv1j1zykH46zcsugv1cOu202WB3kQ
+REPLICATE_MODEL=ibm-granite/granite-3.3-8b-instruct
 
 # MongoDB Atlas Configuration
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/
@@ -72,22 +56,14 @@ TEMPERATURE=0.7
 LOG_LEVEL=INFO
 ```
 
-### 4. IBM watsonx.ai Setup
+### 4. Replicate Setup
 
-1. **Create IBM Cloud Account**: Sign up at [IBM Cloud](https://cloud.ibm.com/)
-2. **Access watsonx.ai**:
-   - Go to the IBM Cloud catalog
-   - Search for "watsonx.ai" or go directly to [watsonx.ai](https://www.ibm.com/watsonx)
-   - Create a new watsonx.ai instance
-3. **Get API Key**:
-   - Go to your IBM Cloud dashboard
-   - Navigate to "Access (IAM)" > "API keys"
-   - Create a new API key or use existing one
-   - Copy the API key value
-4. **Get Project ID**:
-   - In watsonx.ai, create a new project
-   - Go to project settings
-   - Copy the project ID
+1. **Create Replicate Account**: Sign up at [Replicate](https://replicate.com/)
+2. **Get API Token**:
+   - Go to your account settings
+   - Generate a new API token
+   - Copy the token (starts with `r8_`)
+3. **API Credit**: Your account comes with $0.50 credit to test IBM Granite models
 
 ### 5. MongoDB Atlas Setup
 
@@ -144,7 +120,7 @@ python main.py
 ### Example Interaction
 
 ```
-🤖 RAG Chatbot - Powered by IBM Granite AI & MongoDB Atlas
+🤖 RAG Chatbot - Powered by IBM Granite on Replicate & MongoDB Atlas
 
 You: What is machine learning?
 
@@ -161,15 +137,13 @@ You: What is machine learning?
 
 ### IBM Granite AI Models
 
-The chatbot uses `ibm/granite-8b-code-instruct` by default for optimal performance. You can change this in `ibm_client.py`:
+The chatbot uses `ibm-granite/granite-3.3-8b-instruct` by default for optimal performance. Available models on Replicate:
 
 ```python
-# Available IBM Granite models:
-model_id = "ibm/granite-8b-code-instruct"     # Default - Fast and efficient
-# model_id = "ibm/granite-13b-instruct-v2"    # Larger, more capable
-# model_id = "ibm/granite-13b-chat-v2"        # Good for conversations
-# model_id = "ibm/granite-20b-multilingual"   # Multilingual support
-# model_id = "ibm/granite-3b-code-instruct"   # Smallest, fastest
+# Available IBM Granite models on Replicate:
+"ibm-granite/granite-3.3-8b-instruct"    # Default - Latest and most efficient
+"ibm-granite/granite-3.0-8b-instruct"    # Previous version, stable
+"ibm-granite/granite-3.0-3b-a800m-instruct" # Smaller, faster model
 ```
 
 ### Retrieval Parameters
@@ -185,14 +159,15 @@ Adjust these in your `.env` file:
 
 ```
 RAG/
-├── main.py              # Terminal chatbot interface
-├── config.py            # Configuration management
-├── database.py          # MongoDB Atlas connector
-├── ibm_client.py        # IBM Watson AI client
-├── rag_pipeline.py      # RAG pipeline orchestration
-├── requirements.txt     # Python dependencies
-├── .env                 # Environment variables
-└── README.md           # This file
+├── main.py                    # Terminal chatbot interface
+├── config.py                  # Configuration management
+├── database.py                # MongoDB Atlas connector
+├── replicate_client.py        # Replicate AI client for IBM Granite
+├── rag_pipeline.py            # RAG pipeline orchestration
+├── test_granite_replicate.py  # Integration tests
+├── requirements.txt           # Python dependencies
+├── .env                       # Environment variables
+└── README.md                  # This file
 ```
 
 ## 🔍 Component Overview
@@ -206,8 +181,8 @@ Centralized configuration management with environment variable loading and valid
 ### `database.py`
 MongoDB Atlas connector handling vector search operations and document retrieval.
 
-### `ibm_client.py`
-IBM Granite AI client for text generation using IBM's foundation models through watsonx.ai.
+### `replicate_client.py`
+Replicate AI client for IBM Granite text generation using Replicate's hosting platform.
 
 ### `rag_pipeline.py`
 Orchestrates the complete RAG workflow: query embedding → document retrieval → response generation.
@@ -228,10 +203,10 @@ Orchestrates the complete RAG workflow: query embedding → document retrieval �
    - Verify the connection string format and credentials
    - Check that vector search index exists and is properly configured
 
-4. **IBM watsonx.ai Errors**:
-   - Verify API key and project ID are correct
-   - Ensure watsonx.ai service is active and accessible
-   - Check that you have access to IBM Granite models
+4. **Replicate API Errors**:
+   - Verify API token is correct and active
+   - Check that you have sufficient credits
+   - Ensure the model `ibm-granite/granite-3.3-8b-instruct` is accessible
 
 5. **No Search Results**:
    - Check similarity threshold (try lowering it)
@@ -250,7 +225,7 @@ You: health
 This will show the status of:
 - ✅ Sentence transformer (embedder)
 - ✅ MongoDB Atlas connection
-- ✅ IBM Granite AI client
+- ✅ IBM Granite client (via Replicate)
 
 ## 📊 Performance Tips
 
@@ -264,17 +239,17 @@ This will show the status of:
    - Tune `TEMPERATURE` for creativity vs. consistency
    - Experiment with different IBM Watson models
 
-3. **MongoDB Optimization**:
-   - Ensure proper indexing on your vector field
-   - Consider using MongoDB Atlas Search for hybrid search
-   - Monitor query performance in Atlas
+3. **Replicate Optimization**:
+   - Monitor usage and costs in Replicate dashboard
+   - Consider model choice based on speed vs. quality needs
+   - Use caching for repeated queries
 
 ## 🔒 Security Considerations
 
 - Keep your `.env` file secure and never commit it to version control
 - Use environment-specific configurations
 - Regularly rotate API keys and credentials
-- Monitor usage and costs in IBM Cloud and MongoDB Atlas
+- Monitor usage and costs in Replicate and MongoDB Atlas
 
 ## 📄 License
 
@@ -287,7 +262,7 @@ For issues and questions:
 1. Check the troubleshooting section above
 2. Review component health status using the `health` command
 3. Check logs for detailed error messages
-4. Verify your IBM Cloud and MongoDB Atlas configurations
+4. Verify your Replicate and MongoDB Atlas configurations
 
 ---
 
