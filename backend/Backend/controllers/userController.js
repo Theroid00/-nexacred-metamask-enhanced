@@ -102,13 +102,25 @@ export async function getUserById(req, res) {
 // 5️⃣ Update user
 export async function updateUser(req, res) {
   try {
-    const { username, email, aadhaarNumber } = req.body;
+    // Only allow updating fields that exist in the schema (excluding passwordHash, createdAt, etc.)
+    const updatableFields = [
+      "username", "email", "walletAddress", "walletConnectedAt", "lastWalletActivity",
+      "firstName", "middleName", "lastName", "fatherOrSpouseName", "dateOfBirth", "phoneNumber", "pan", "aadhaar",
+      "streetAddress", "areaLocality", "city", "state", "pinCode", "country",
+      "employmentStatus", "occupationCategory", "companyName", "yearsOfExperience", "monthlyIncomeRange",
+      "hasCreditAccounts", "creditPurpose", "hasBankAccount", "primaryBankName", "existingCreditScore",
+      "termsAccepted", "privacyPolicyAccepted", "consentCreditBureau", "ageVerified", "itrStatus",
+      "educationalQualification", "languagePreference", "communicationMethod", "maritalStatus", "numberOfDependents"
+    ];
+    const updateData = {};
+    for (const field of updatableFields) {
+      if (field in req.body) updateData[field] = req.body[field];
+    }
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { username, email, aadhaarNumber },
+      updateData,
       { new: true }
     ).select("-passwordHash");
-
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ message: "User updated", user });
   } catch (err) {
