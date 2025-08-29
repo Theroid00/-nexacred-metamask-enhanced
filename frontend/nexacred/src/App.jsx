@@ -2,6 +2,7 @@ import Header from "./components/Header";
 import React, { useState } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import AuthModal from "./components/AuthModal";
+import useMetaMask from './hooks/useMetaMask';
 import Hero from "./components/Hero";
 import TrustBadges from "./components/TrustBadges";
 import Features from "./components/Features";
@@ -16,6 +17,10 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const navigate = useNavigate();
+  
+  // MetaMask wallet integration
+  const wallet = useMetaMask();
+  const [walletUser, setWalletUser] = useState(null);
 
   // Register API
   const handleRegister = async (form) => {
@@ -37,34 +42,52 @@ export default function App() {
     }
   };
 
-  // Login API
-  const handleLogin = async ({ username, password }) => {
+  // Enhanced Login API (supports both traditional and wallet auth)
+  const handleLogin = async (loginData) => {
     try {
-      const res = await fetch('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setToken(data.token);
-        localStorage.setItem('token', data.token);
-        setUser(data.user);
+      let res, data;
+      
+      if (loginData.walletAddress) {
+        // Wallet authentication - data already includes token and user
+        setToken(loginData.token);
+        localStorage.setItem('token', loginData.token);
+        setUser(loginData.user);
+        setWalletUser({ address: loginData.walletAddress });
         setAuthOpen(false);
-        navigate('/dashboard'); // Redirect after login
+        navigate('/dashboard');
+        return;
       } else {
-        alert(data.error || 'Login failed');
+        // Traditional username/password authentication
+        res = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: loginData.username, password: loginData.password })
+        });
+        data = await res.json();
+        
+        if (res.ok) {
+          setToken(data.token);
+          localStorage.setItem('token', data.token);
+          setUser(data.user);
+          setWalletUser(null); // Clear wallet user for traditional login
+          setAuthOpen(false);
+          navigate('/dashboard');
+        } else {
+          alert(data.error || 'Login failed');
+        }
       }
     } catch (err) {
-      alert('Login error', err);
+      alert('Login error: ' + err.message);
     }
   };
 
-  // Logout
+  // Enhanced Logout
   const handleLogout = () => {
     setUser(null);
+    setWalletUser(null);
     setToken('');
     localStorage.removeItem('token');
+    wallet.disconnectWallet();
   };
 
   return (
@@ -79,7 +102,12 @@ export default function App() {
         <Route
           path="/dashboard"
           element={
-            <Dashboard user={user} />
+            <Dashboard 
+              user={user} 
+              wallet={wallet}
+              walletUser={walletUser}
+              token={token}
+            />
           }
         />
         <Route

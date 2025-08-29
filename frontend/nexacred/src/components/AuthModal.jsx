@@ -1,6 +1,72 @@
 import React, { useState } from "react";
+import { Wallet } from "lucide-react";
+import useMetaMask from '../hooks/useMetaMask';
 
 const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
+  // MetaMask integration
+  const {
+    isConnected,
+    account,
+    signMessage,
+    connectWallet,
+    isLoading: walletLoading,
+    error: walletError
+  } = useMetaMask();
+
+  const [walletAuthLoading, setWalletAuthLoading] = useState(false);
+
+  // Wallet authentication function
+  const handleWalletAuth = async () => {
+    try {
+      setWalletAuthLoading(true);
+      
+      if (!isConnected) {
+        const connected = await connectWallet();
+        if (!connected) {
+          console.error('Failed to connect wallet');
+          return;
+        }
+      }
+
+      // Create authentication message
+      const message = `Welcome to NexaCred! Please sign this message to authenticate your wallet.\n\nWallet: ${account}\nTimestamp: ${Date.now()}`;
+      
+      // Sign message
+      const signature = await signMessage(message);
+      if (!signature) {
+        console.error('Failed to sign message');
+        return;
+      }
+
+      // Call wallet authentication API
+      const walletAuthData = {
+        walletAddress: account,
+        message,
+        signature
+      };
+
+      const response = await fetch('/api/users/wallet-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(walletAuthData)
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        // Successful wallet authentication
+        onLogin({ token: data.token, user: data.user, walletAddress: account });
+        onClose();
+      } else {
+        console.error('Wallet authentication failed:', data.error);
+        alert('Wallet authentication failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Wallet auth error:', error);
+      alert('Wallet authentication error: ' + error.message);
+    } finally {
+      setWalletAuthLoading(false);
+    }
+  };
   const [isLogin, setIsLogin] = useState(true);
   const [form, setForm] = useState({
     username: "",
@@ -257,6 +323,57 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
           <button type="submit" style={{
             marginTop: 8, padding: 12, borderRadius: 8, border: 'none', background: 'linear-gradient(90deg,#2563eb,#1e40af)', color: '#fff', fontWeight: 700, fontSize: 16, cursor: 'pointer', letterSpacing: 1
           }}>{isLogin ? "Login" : "Register"}</button>
+          
+          {isLogin && (
+            <>
+              <div style={{ 
+                display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0', 
+                color: '#888', fontSize: 14 
+              }}>
+                <div style={{ flex: 1, height: '1px', background: '#333' }}></div>
+                <span>or</span>
+                <div style={{ flex: 1, height: '1px', background: '#333' }}></div>
+              </div>
+              
+              <button 
+                type="button"
+                onClick={handleWalletAuth}
+                disabled={walletAuthLoading || walletLoading}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  padding: 12, borderRadius: 8, border: '2px solid #f97316', 
+                  background: walletAuthLoading ? '#f97316' : 'transparent', 
+                  color: '#f97316', fontWeight: 600, fontSize: 16, cursor: 'pointer',
+                  transition: 'all 0.2s', opacity: (walletAuthLoading || walletLoading) ? 0.7 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!walletAuthLoading && !walletLoading) {
+                    e.target.style.background = '#f97316';
+                    e.target.style.color = '#fff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!walletAuthLoading && !walletLoading) {
+                    e.target.style.background = 'transparent';
+                    e.target.style.color = '#f97316';
+                  }
+                }}
+              >
+                <Wallet style={{ width: 20, height: 20 }} />
+                {walletAuthLoading ? 'Authenticating...' : 'Connect with MetaMask'}
+              </button>
+              
+              {walletError && (
+                <div style={{
+                  marginTop: 8, padding: 10, borderRadius: 6, 
+                  background: '#dc26264d', border: '1px solid #dc2626', 
+                  color: '#fca5a5', fontSize: 14, textAlign: 'center'
+                }}>
+                  {walletError}
+                </div>
+              )}
+            </>
+          )}
         </form>
       </div>
     </div>

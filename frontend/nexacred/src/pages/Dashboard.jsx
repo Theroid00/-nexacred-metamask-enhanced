@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import bgImg from "../assets/20250829_0408_NexaCred Logo Design_remix_01k3sd5z5medt9v3dy7fhwq7pv.png";
 import { MessageCircle, X } from "lucide-react";
+import WalletConnection from '../components/WalletConnection';
+import RiskReport from '../components/RiskReport';
 
-export default function Dashboard({ user, onUserUpdate }) {
+export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(user || {});
@@ -177,11 +179,8 @@ export default function Dashboard({ user, onUserUpdate }) {
         </button>
       </aside>
 
-      {/* Right Main Content with background image */}
-      <main
-        className="w-[40%] flex flex-col items-center justify-center gap-8 text-center relative overflow-hidden"
-        style={{ minHeight: '100vh' }}
-      >
+      {/* Enhanced Main Content with Web3 Features */}
+      <main className="w-[40%] flex flex-col gap-6 p-8 relative overflow-hidden" style={{ minHeight: '100vh' }}>
         {/* Background image with overlay */}
         <div
           className="absolute inset-0 z-0"
@@ -189,42 +188,86 @@ export default function Dashboard({ user, onUserUpdate }) {
             backgroundImage: `url(${bgImg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(0.5px) brightness(0.7)',
-            opacity: 0.85,
+            filter: 'blur(0.5px) brightness(0.3)',
+            opacity: 0.4,
           }}
         />
-        {/* Subtle dark overlay for readability */}
-        <div className="absolute inset-0 bg-black/40 z-10" />
-        <div className="relative z-20 w-full flex flex-col items-center justify-center gap-8">
-          <h1 className="text-5xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent drop-shadow-lg">
-            Dashboard
-          </h1>
-          <div className="flex flex-col gap-6 items-center">
-            <button
-              className="relative px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-xl text-lg font-semibold shadow-lg transition cursor-pointer transform hover:scale-105"
-              onClick={handleShowLendingModal}
-            >
-              Lending Request's
-              {pendingRequests > 0 && (
-                <span className="absolute -top-2 -right-2 bg-yellow-400 text-gray-900 rounded-full px-2 py-1 text-xs font-bold border-2 border-white">{pendingRequests}</span>
-              )}
-            </button>
-            <button
-              className="px-8 py-4 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-xl text-lg font-semibold shadow-lg transition cursor-pointer transform hover:scale-105"
-              onClick={handleBorrow}
-            >
-              Borrow
-            </button>
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/80 via-gray-900/60 to-gray-900/80 z-10" />
+        
+        <div className="relative z-20 flex flex-col gap-6">
+          {/* Dashboard Header */}
+          <div className="text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent drop-shadow-lg mb-2">
+              Dashboard
+            </h1>
+            {walletUser && (
+              <p className="text-gray-300 text-sm">
+                🔗 Connected with MetaMask
+              </p>
+            )}
+          </div>
+
+          {/* Wallet Connection Section */}
+          <WalletConnection
+            isConnected={wallet?.isConnected || false}
+            account={wallet?.account}
+            balance={wallet?.balance || '0.0000'}
+            currentNetwork={wallet?.currentNetwork}
+            isLoading={wallet?.isLoading || false}
+            error={wallet?.error}
+            onConnect={wallet?.connectWallet}
+            onDisconnect={wallet?.disconnectWallet}
+            onSwitchNetwork={wallet?.switchNetwork}
+            networks={wallet?.networks || {}}
+            isMetaMaskInstalled={wallet?.isMetaMaskInstalled || false}
+          />
+
+          {/* Traditional Actions */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              💰 Financial Actions
+            </h3>
+            <div className="flex flex-col gap-4">
+              <button
+                className="relative px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 rounded-lg text-white font-semibold shadow-lg transition cursor-pointer transform hover:scale-105"
+                onClick={handleShowLendingModal}
+              >
+                Lending Requests
+                {pendingRequests > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-yellow-400 text-gray-900 rounded-full px-2 py-1 text-xs font-bold border-2 border-white">
+                    {pendingRequests}
+                  </span>
+                )}
+              </button>
+              <button
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 rounded-lg text-white font-semibold shadow-lg transition cursor-pointer transform hover:scale-105"
+                onClick={handleBorrow}
+              >
+                Borrow Funds
+              </button>
+            </div>
           </div>
         </div>
       </main>
 
-      {/* Right Sidebar: History */}
-      <aside className="w-[30%] bg-gray-900/80 backdrop-blur-lg p-10 flex flex-col gap-6 border-l border-gray-800 min-h-screen shadow-xl">
-        <h2 className="text-3xl font-bold mb-6 tracking-wide bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-          History
+      {/* Right Sidebar: Web3 Analytics & History */}
+      <aside className="w-[30%] bg-gray-900/80 backdrop-blur-lg p-6 flex flex-col gap-6 border-l border-gray-800 min-h-screen shadow-xl overflow-y-auto">
+        <h2 className="text-2xl font-bold mb-4 tracking-wide bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Analytics & History
         </h2>
-        <div className="space-y-4 text-lg leading-relaxed text-gray-200">
+        
+        {/* Risk Analysis Section */}
+        <div className="mb-6">
+          <RiskReport 
+            walletAddress={wallet?.account}
+            balance={wallet?.balance || '0.0000'}
+          />
+        </div>
+        
+        {/* Traditional History Section */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+          <h3 className="text-lg font-semibold text-white mb-4">Transaction History</h3>
+          <div className="space-y-4 text-sm leading-relaxed text-gray-200">
           <div className="font-semibold text-gray-400 mb-2">Lending History</div>
           {userHistory.filter(r => r.status === 'approved' && r.lender && r.lender._id === user._id).length === 0 ? (
             <div className="bg-gray-800/70 rounded-lg p-4">No lending history yet.</div>
@@ -251,6 +294,7 @@ export default function Dashboard({ user, onUserUpdate }) {
               ))}
             </ul>
           )}
+          </div>
         </div>
       </aside>
 

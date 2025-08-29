@@ -6,6 +6,18 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, match: /.+@.+\..+/ },
   passwordHash: { type: String, required: true },
+  
+  // Web3 Wallet Integration
+  walletAddress: { 
+    type: String, 
+    unique: true, 
+    sparse: true,
+    lowercase: true,
+    match: /^0x[a-fA-F0-9]{40}$/,
+    index: true
+  },
+  walletConnectedAt: { type: Date },
+  lastWalletActivity: { type: Date },
 
   // Personal Information
   firstName: { type: String ,required: true},

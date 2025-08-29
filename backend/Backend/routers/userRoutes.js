@@ -6,13 +6,15 @@ import {
   getUsers,
   getUserById,
   updateUser,
-  deleteUser
+  deleteUser,
+  walletAuth
 } from "../controllers/userController.js";
 
 const router = express.Router();
 
 router.post("/register", registerUser);
 router.post("/login", loginUser);
+router.post("/wallet-auth", walletAuth);
 router.get("/", getUsers);
 router.get("/:id", getUserById);
 router.put("/:id", updateUser);
