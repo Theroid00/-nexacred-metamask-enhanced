@@ -7,6 +7,7 @@ import historyRoutes from "./routers/historyRoutes.js";
 import { authenticateToken } from './middleware/auth.js';
 //import guidelineRoutes from "./routes/guidelineRoutes.js";
 
+
 connectDB();
 
 const app = express();
@@ -21,7 +22,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/history", historyRoutes);
 // app.use("/api/credit-profiles", authenticateToken, creditProfileRoutes);
-const PORT = process.env.PORT || 5000;
+const PORT =  5000;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
