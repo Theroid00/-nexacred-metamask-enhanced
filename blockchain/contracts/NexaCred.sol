@@ -338,7 +338,7 @@ contract NexaCred {
      * Check if user can borrow (has good standing)
      * Called by: Frontend before showing loan form
      */
-    function canUserBorrow(address user) external view returns (bool) {
+    function canUserBorrow(address user) public view returns (bool) {
         UserProfile memory profile = userProfiles[user];
         
         // Basic eligibility checks

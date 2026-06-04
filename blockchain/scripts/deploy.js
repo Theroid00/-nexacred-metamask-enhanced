@@ -12,14 +12,24 @@ async function main() {
   // Deploy Credit Score contract first
   console.log("\n📊 Deploying CreditScore contract...");
   const creditScore = await CreditScore.deploy();
-  await creditScore.deployed();
-  console.log(`✅ CreditScore deployed to: ${creditScore.address}`);
+  if (typeof creditScore.waitForDeployment === "function") {
+    await creditScore.waitForDeployment();
+  } else if (typeof creditScore.deployed === "function") {
+    await creditScore.deployed();
+  }
+  const creditScoreAddress = creditScore.target || creditScore.address;
+  console.log(`✅ CreditScore deployed to: ${creditScoreAddress}`);
 
   // Deploy NexaCred lending contract
   console.log("\n💰 Deploying NexaCred lending contract...");
   const nexaCred = await NexaCred.deploy();
-  await nexaCred.deployed();
-  console.log(`✅ NexaCred deployed to: ${nexaCred.address}`);
+  if (typeof nexaCred.waitForDeployment === "function") {
+    await nexaCred.waitForDeployment();
+  } else if (typeof nexaCred.deployed === "function") {
+    await nexaCred.deployed();
+  }
+  const nexaCredAddress = nexaCred.target || nexaCred.address;
+  console.log(`✅ NexaCred deployed to: ${nexaCredAddress}`);
 
   // Setup initial configuration
   console.log("\n⚙️ Setting up initial configuration...");
@@ -29,9 +39,36 @@ async function main() {
   console.log(`Deployer account: ${deployer.address}`);
   
   // Authorize NexaCred contract to update credit scores
-  const authTx = await creditScore.setAuthorizedUpdater(nexaCred.address, true);
+  const authTx = await creditScore.setAuthorizedUpdater(nexaCredAddress, true);
   await authTx.wait();
   console.log("✅ NexaCred contract authorized to update credit scores");
+
+  // Get block numbers safely
+  let creditScoreBlockNumber = 0;
+  let nexaCredBlockNumber = 0;
+  try {
+    if (creditScore.deploymentTransaction) {
+      const txReceipt = await creditScore.deploymentTransaction().wait();
+      creditScoreBlockNumber = txReceipt.blockNumber;
+    } else if (creditScore.deployTransaction) {
+      const txReceipt = await creditScore.deployTransaction.wait();
+      creditScoreBlockNumber = txReceipt.blockNumber;
+    }
+  } catch (e) {
+    console.warn("Could not retrieve CreditScore block number:", e.message);
+  }
+
+  try {
+    if (nexaCred.deploymentTransaction) {
+      const txReceipt = await nexaCred.deploymentTransaction().wait();
+      nexaCredBlockNumber = txReceipt.blockNumber;
+    } else if (nexaCred.deployTransaction) {
+      const txReceipt = await nexaCred.deployTransaction.wait();
+      nexaCredBlockNumber = txReceipt.blockNumber;
+    }
+  } catch (e) {
+    console.warn("Could not retrieve NexaCred block number:", e.message);
+  }
 
   // Create deployment info for backend integration
   const deploymentInfo = {
@@ -39,14 +76,14 @@ async function main() {
     chainId: hre.network.config.chainId,
     contracts: {
       CreditScore: {
-        address: creditScore.address,
+        address: creditScoreAddress,
         deployer: deployer.address,
-        blockNumber: creditScore.deployTransaction.blockNumber
+        blockNumber: creditScoreBlockNumber
       },
       NexaCred: {
-        address: nexaCred.address,
+        address: nexaCredAddress,
         deployer: deployer.address,
-        blockNumber: nexaCred.deployTransaction.blockNumber
+        blockNumber: nexaCredBlockNumber
       }
     },
     deployedAt: new Date().toISOString(),
@@ -62,8 +99,8 @@ async function main() {
   const envVars = `
 # Blockchain Configuration (Generated from deployment)
 BLOCKCHAIN_NETWORK=${hre.network.name}
-CREDIT_SCORE_CONTRACT_ADDRESS=${creditScore.address}
-NEXACRED_CONTRACT_ADDRESS=${nexaCred.address}
+CREDIT_SCORE_CONTRACT_ADDRESS=${creditScoreAddress}
+NEXACRED_CONTRACT_ADDRESS=${nexaCredAddress}
 WEB3_PROVIDER_URL=${hre.network.config.url}
 `;
 
@@ -79,8 +116,8 @@ WEB3_PROVIDER_URL=${hre.network.config.url}
   
   console.log("\n📊 Deployment Summary:");
   console.log(`Network: ${hre.network.name}`);
-  console.log(`CreditScore: ${creditScore.address}`);
-  console.log(`NexaCred: ${nexaCred.address}`);
+  console.log(`CreditScore: ${creditScoreAddress}`);
+  console.log(`NexaCred: ${nexaCredAddress}`);
   console.log(`Deployer: ${deployer.address}`);
 }
 

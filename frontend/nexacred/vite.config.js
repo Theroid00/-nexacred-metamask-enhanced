@@ -21,12 +21,12 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: process.env.NODE_ENV === 'development',
-    minify: 'terser',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          web3: ['ethers', '@metamask/sdk'],
+          web3: ['ethers'],
           ui: ['lucide-react']
         },
         // Optimize asset naming for AWS CloudFront caching
