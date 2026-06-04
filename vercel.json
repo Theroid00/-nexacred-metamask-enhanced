@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "buildCommand": "cd frontend/nexacred && npm install && npm run build",
+  "outputDirectory": "frontend/nexacred/dist",
+  "framework": "vite",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://your-node-backend.onrender.com/api/:path*"
+    },
+    {
+      "source": "/analyzer/:path*",
+      "destination": "https://your-fastapi-analyzer.onrender.com/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
