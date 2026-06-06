@@ -5,13 +5,13 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: './',  // 👈 AWS deployment requires relative paths
+  base: '/', // Vercel SPA routing requires absolute asset paths
   server: {
     host: true,
     port: 3000,
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'http://localhost:5000',
+        target: process.env.VITE_API_URL || 'http://localhost:5001',
         changeOrigin: true,
         secure: false
       },
@@ -29,7 +29,6 @@ export default defineConfig({
           web3: ['ethers'],
           ui: ['lucide-react']
         },
-        // Optimize asset naming for AWS CloudFront caching
         assetFileNames: (assetInfo) => {
           const info = assetInfo.name.split('.');
           const ext = info[info.length - 1];
@@ -42,20 +41,11 @@ export default defineConfig({
         entryFileNames: 'assets/js/[name]-[hash].js'
       }
     },
-    // Optimize for AWS deployment
-    terserOptions: {
-      compress: {
-        drop_console: process.env.NODE_ENV === 'production',
-        drop_debugger: true
-      }
-    }
   },
-  // Environment variable handling for AWS
   define: {
     __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString())
   },
-  // Optimize preview for testing AWS build locally
   preview: {
     host: true,
     port: 4173,

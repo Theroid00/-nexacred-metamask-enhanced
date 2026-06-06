@@ -77,20 +77,36 @@ router.post('/query', async (req, res) => {
     const sanitizedQuery = query.trim().substring(0, 1000);
     console.log(`Processing chatbot query: "${sanitizedQuery.substring(0, 50)}..."`);
 
-    // 1. Context retrieval from Supabase using pg full-text search / ILIKE matches
+    // 1. Context retrieval from Supabase using PostgreSQL full-text search (uses GIN index)
     let retrievedDocs = [];
     try {
-      const keywords = sanitizedQuery.split(' ').filter(w => w.length > 3).map(w => `%${w}%`);
-      if (keywords.length > 0) {
-        // Query guidelines table
-        const queryBuilder = supabase.from('guidelines').select('title, content');
-        
-        // Build OR search query using array of keywords
-        const orClauses = keywords.map(kw => `content.ilike.${kw}`).join(',');
-        const { data: docs } = await queryBuilder.or(orClauses).limit(3);
-        
-        if (docs && docs.length > 0) {
-          retrievedDocs = docs.map(d => `[${d.title}] ${d.content}`);
+      // Build a tsquery string from meaningful words (>3 chars)
+      const searchWords = sanitizedQuery.split(/\s+/).filter(w => w.length > 3);
+
+      if (searchWords.length > 0) {
+        const tsQuery = searchWords.join(' | '); // OR-based full-text query
+
+        // Primary: full-text search using the GIN index on 'content'
+        const { data: ftsDocs, error: ftsError } = await supabase
+          .from('guidelines')
+          .select('title, content')
+          .textSearch('content', tsQuery, { type: 'websearch', config: 'english' })
+          .limit(3);
+
+        if (!ftsError && ftsDocs && ftsDocs.length > 0) {
+          retrievedDocs = ftsDocs.map(d => `[${d.title}] ${d.content}`);
+        } else {
+          // Fallback: ILIKE scan if FTS returns nothing (e.g. single-char queries)
+          const orClauses = searchWords.map(kw => `content.ilike.%${kw}%`).join(',');
+          const { data: likeDocs } = await supabase
+            .from('guidelines')
+            .select('title, content')
+            .or(orClauses)
+            .limit(3);
+
+          if (likeDocs && likeDocs.length > 0) {
+            retrievedDocs = likeDocs.map(d => `[${d.title}] ${d.content}`);
+          }
         }
       }
     } catch (dbError) {

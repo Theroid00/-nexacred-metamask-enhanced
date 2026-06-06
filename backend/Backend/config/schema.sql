@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS history (
     lender UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     amount NUMERIC(20, 8) NOT NULL,
     type VARCHAR(20) NOT NULL CHECK (type IN ('borrow', 'lend')),
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed', 'defaulted')),
     request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     response_date TIMESTAMP WITH TIME ZONE,
     message TEXT,

@@ -1,14 +1,22 @@
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-const JWT_SECRET = "your_super_secret_key";
+
 dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error("CRITICAL: JWT_SECRET environment variable is not set in production. Authentication is insecure.");
+}
+
+const EFFECTIVE_SECRET = JWT_SECRET || 'dev_jwt_secret_key';
 
 export function authenticateToken(req, res, next) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.sendStatus(401);
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
+  jwt.verify(token, EFFECTIVE_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();

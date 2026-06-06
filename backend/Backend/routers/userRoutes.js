@@ -9,15 +9,19 @@ import {
   deleteUser,
   walletAuth
 } from "../controllers/userController.js";
+import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
 
+// Public auth routes (no token required)
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/wallet-auth", walletAuth);
-router.get("/", getUsers);
-router.get("/:id", getUserById);
-router.put("/:id", updateUser);
-router.delete("/:id", deleteUser);
+
+// Protected user data routes
+router.get("/", authenticateToken, getUsers);
+router.get("/:id", authenticateToken, getUserById);
+router.put("/:id", authenticateToken, updateUser);
+router.delete("/:id", authenticateToken, deleteUser);
 
 export default router;
