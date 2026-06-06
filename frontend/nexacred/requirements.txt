@@ -1,7 +1,0 @@
-react
-react-dom
-lucide-react
-tailwindcss
-postcss
-autoprefixer
-react-router-dom
