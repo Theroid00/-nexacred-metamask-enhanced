@@ -3,8 +3,9 @@ import bgImg from "../assets/20250829_0408_NexaCred Logo Design_remix_01k3sd5z5m
 import { MessageCircle, X } from "lucide-react";
 import WalletConnection from '../components/WalletConnection';
 import RiskReport from '../components/RiskReport';
+import { apiFetch } from "../utils/api.js";
 
-export default function Dashboard({ user, wallet, walletUser, token, onUserUpdate }) {
+export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
   // Chatbot state
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
@@ -26,15 +27,15 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
   const [profileModalLoading, setProfileModalLoading] = useState(false);
   const [profileModalHistory, setProfileModalHistory] = useState([]);
   const [profileModalHistoryLoading, setProfileModalHistoryLoading] = useState(false);
-  // ...existing state...
+  
   // For animated dropdowns in history
   const [showAllLending, setShowAllLending] = useState(false);
   const [showAllBorrowing, setShowAllBorrowing] = useState(false);
-  // ...existing state...
-  const [isChatOpen, setIsChatOpen] = useState(false);
+
   // Edit form state
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState(user || {});
+  const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
 
@@ -52,11 +53,10 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
   const [userHistory, setUserHistory] = useState([]);
   const [showLendingModal, setShowLendingModal] = useState(false);
 
-
   // Fetch pending requests for lender notification
   useEffect(() => {
     if (!user) return;
-    fetch(`/api/history/user/${user._id}`)
+    apiFetch(`/history/user/${user._id}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -74,12 +74,12 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
     
     const syncBlockchain = async () => {
       try {
-        const res = await fetch(`/api/risk-analysis/sync/${wallet.account}`);
+        const res = await apiFetch(`/risk-analysis/sync/${wallet.account}`);
         const data = await res.json();
         if (data.success) {
           console.log("On-chain events synchronized successfully.");
           // Trigger history reload to ensure the Supabase view aligns instantly with the blockchain state
-          const historyRes = await fetch(`/api/history/user/${user._id}`);
+          const historyRes = await apiFetch(`/history/user/${user._id}`);
           const historyData = await historyRes.json();
           if (historyData.success) {
             setUserHistory(historyData.history);
@@ -96,6 +96,13 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
     syncBlockchain();
   }, [wallet?.account, user?._id]);
 
+  // Auto-scroll chat messages to bottom
+  useEffect(() => {
+    const chatContainer = document.getElementById('chatbot-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [chatMessages]);
 
   if (!user) return <div className="text-center p-8 font-inter">Loading...</div>;
 
@@ -116,8 +123,9 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
   const handleEditSave = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setEditError("");
     try {
-      const res = await fetch(`/api/users/${user._id}`, {
+      const res = await apiFetch(`/users/${user._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
@@ -129,10 +137,10 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
         if (onUserUpdate) onUserUpdate(data.user);
         window.location.reload(); // quick update for now
       } else {
-        alert(data.error || 'Update failed');
+        setEditError(data.error || 'Update failed');
       }
     } catch (err) {
-      alert('Update error');
+      setEditError('Update error: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -163,7 +171,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
     setBorrowError('');
     try {
       // Find lender by username (simple fetch)
-      const resLender = await fetch(`/api/users?username=${borrowForm.lenderUsername}`);
+      const resLender = await apiFetch(`/users?username=${borrowForm.lenderUsername}`);
       const dataLender = await resLender.json();
       if (!resLender.ok || !dataLender.user) {
         setBorrowError('Lender not found');
@@ -172,7 +180,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
       }
       const lenderId = dataLender.user._id;
       // Create borrow request
-      const res = await fetch('/api/history/', {
+      const res = await apiFetch('/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -191,7 +199,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
         setBorrowError(data.error || 'Request failed');
       }
     } catch (err) {
-      setBorrowError('Error sending request');
+      setBorrowError('Error sending request: ' + err.message);
     } finally {
       setBorrowLoading(false);
     }
@@ -226,7 +234,7 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
 
     try {
       // Call the RAG chatbot API
-      const response = await fetch('/api/chatbot/query', {
+      const response = await apiFetch('/chatbot/query', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -290,13 +298,6 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
     setChatbotOpen(false);
   };
 
-  // Auto-scroll chat messages to bottom
-  React.useEffect(() => {
-    const chatContainer = document.getElementById('chatbot-messages');
-    if (chatContainer) {
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-  }, [chatMessages]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white font-inter">
@@ -533,6 +534,11 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
           >
             <button type="button" onClick={handleCloseModal} className="absolute top-4 right-6 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
             <h3 className="text-2xl font-bold mb-2 text-center">Edit Profile</h3>
+            {editError && (
+              <div className="bg-red-900/30 border border-red-500/30 text-red-300 p-3 rounded-lg text-sm text-center">
+                {editError}
+              </div>
+            )}
             {/* Personal Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -848,12 +854,12 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                           setProfileModalHistory([]);
                           setProfileModalHistoryLoading(true);
                           try {
-                            const res = await fetch(`/api/users/${req.borrower?._id}`);
+                            const res = await apiFetch(`/users/${req.borrower?._id}`);
                             if (res.ok) {
                               const data = await res.json();
                               setProfileModalUser(data || null);
                               // Fetch history for this user
-                              const hres = await fetch(`/api/history/user/${req.borrower?._id}`);
+                              const hres = await apiFetch(`/history/user/${req.borrower?._id}`);
                               if (hres.ok) {
                                 const hdata = await hres.json();
                                 setProfileModalHistory(hdata.history || []);
@@ -881,12 +887,12 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                             className="py-1 px-3 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold rounded-md shadow text-sm transition transform hover:scale-105 border border-green-300 cursor-pointer"
                             style={{ minWidth: 70 }}
                             onClick={async () => {
-                              await fetch(`/api/history/${req._id}/status`, {
+                              await apiFetch(`/history/${req._id}/status`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ status: 'approved' })
                               });
-                              fetch(`/api/history/user/${user._id}`)
+                              apiFetch(`/history/user/${user._id}`)
                                 .then(res => res.json())
                                 .then(data => {
                                   if (data.success) {
@@ -904,12 +910,12 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
                             style={{ minWidth: 70 }}
                             onClick={async () => {
                               setLendingRequests(prev => prev.filter(r => r._id !== req._id));
-                              await fetch(`/api/history/${req._id}/status`, {
+                              await apiFetch(`/history/${req._id}/status`, {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ status: 'rejected' })
                               });
-                              fetch(`/api/history/user/${user._id}`)
+                              apiFetch(`/history/user/${user._id}`)
                                 .then(res => res.json())
                                 .then(data => {
                                   if (data.success) {

@@ -38,7 +38,7 @@ Edit the `.env` file with your actual credentials:
 
 ```bash
 # Replicate AI Configuration
-REPLICATE_API_TOKEN=r8_5tiCkDeDCv1j1zykH46zcsugv1cOu202WB3kQ
+REPLICATE_API_TOKEN=your_replicate_api_token_here
 REPLICATE_MODEL=ibm-granite/granite-3.3-8b-instruct
 
 # MongoDB Atlas Configuration

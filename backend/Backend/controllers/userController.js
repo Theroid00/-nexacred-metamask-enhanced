@@ -3,8 +3,51 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { ethers } from "ethers";
+import crypto from "crypto";
 
 dotenv.config();
+
+// PII Encryption Helper functions
+const PII_ALGORITHM = 'aes-256-cbc';
+const PII_ENCRYPTION_KEY = process.env.PII_ENCRYPTION_KEY || 'a_very_secret_32_byte_key_for_pii';
+const IV_LENGTH = 16;
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error("CRITICAL: JWT_SECRET environment variable is not set in production. Hard-failing startup.");
+  throw new Error("CRITICAL: JWT_SECRET environment variable is not set in production. Hard-failing startup.");
+}
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev_jwt_secret_key';
+
+export function encryptPII(text) {
+  if (!text) return text;
+  if (typeof text !== 'string') text = String(text);
+  if (text.startsWith('enc:')) return text;
+  
+  const key = crypto.createHash('sha256').update(PII_ENCRYPTION_KEY).digest();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(PII_ALGORITHM, key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `enc:${iv.toString('hex')}:${encrypted}`;
+}
+
+export function decryptPII(text) {
+  if (!text || typeof text !== 'string' || !text.startsWith('enc:')) return text;
+  try {
+    const parts = text.split(':');
+    const iv = Buffer.from(parts[1], 'hex');
+    const encryptedText = Buffer.from(parts[2], 'hex');
+    const key = crypto.createHash('sha256').update(PII_ENCRYPTION_KEY).digest();
+    const decipher = crypto.createDecipheriv(PII_ALGORITHM, key, iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    console.error("PII Decryption failed:", err.message);
+    return text;
+  }
+}
 
 // Helper to map DB snake_case structure to Frontend camelCase structure
 const mapUserToCamelCase = (dbUser) => {
@@ -22,8 +65,8 @@ const mapUserToCamelCase = (dbUser) => {
     fatherOrSpouseName: dbUser.father_or_spouse_name,
     dateOfBirth: dbUser.date_of_birth,
     phoneNumber: dbUser.phone_number,
-    pan: dbUser.pan,
-    aadhaar: dbUser.aadhaar,
+    pan: decryptPII(dbUser.pan),
+    aadhaar: decryptPII(dbUser.aadhaar),
     streetAddress: dbUser.street_address,
     areaLocality: dbUser.area_locality,
     city: dbUser.city,
@@ -113,6 +156,36 @@ export async function registerUser(req, res) {
     const body = req.body;
     const { username, email, password } = body;
 
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: "Username, email, and password are required" });
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+
+    if (body.pan) {
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(body.pan.toUpperCase())) {
+        return res.status(400).json({ error: "Invalid PAN format (expected ABCDE1234F)" });
+      }
+      body.pan = body.pan.toUpperCase();
+    }
+
+    if (body.aadhaar) {
+      const cleanAadhaar = String(body.aadhaar).replace(/[\s-]/g, '');
+      const aadhaarRegex = /^\d{12}$/;
+      if (!aadhaarRegex.test(cleanAadhaar)) {
+        return res.status(400).json({ error: "Invalid Aadhaar format (expected 12 digits)" });
+      }
+      body.aadhaar = cleanAadhaar;
+    }
+
     // Check if user exists
     const { data: existingUser, error: checkError } = await supabase
       .from('users')
@@ -132,6 +205,8 @@ export async function registerUser(req, res) {
     // Prepare database fields
     const insertData = mapBodyToSnakeCase(body);
     insertData.password_hash = passwordHash;
+    if (insertData.pan) insertData.pan = encryptPII(insertData.pan);
+    if (insertData.aadhaar) insertData.aadhaar = encryptPII(insertData.aadhaar);
 
     // Save user in Supabase
     const { data: newUser, error: insertError } = await supabase
@@ -170,7 +245,7 @@ export async function loginUser(req, res) {
 
     const token = jwt.sign(
       { userId: camelUser._id, username: camelUser.username, email: camelUser.email },
-      process.env.JWT_SECRET || 'dev_jwt_secret_key',
+      EFFECTIVE_JWT_SECRET,
       { expiresIn: "14d" }
     );
 
@@ -220,7 +295,18 @@ export async function getUserById(req, res) {
 
     if (fetchError) throw fetchError;
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json(mapUserToCamelCase(user));
+    
+    const camelUser = mapUserToCamelCase(user);
+    // Strip sensitive PII if the requester is not the profile owner
+    if (req.user.userId !== req.params.id) {
+      delete camelUser.pan;
+      delete camelUser.aadhaar;
+      delete camelUser.phoneNumber;
+      delete camelUser.streetAddress;
+      delete camelUser.areaLocality;
+    }
+    
+    res.json(camelUser);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -230,7 +316,31 @@ export async function getUserById(req, res) {
 // 5️⃣ Update user
 export async function updateUser(req, res) {
   try {
+    // Authorization Check: A user can only update their own profile
+    if (req.user.userId !== req.params.id) {
+      return res.status(403).json({ error: "Access denied. You can only update your own profile." });
+    }
+
+    if (req.body.pan) {
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(req.body.pan.toUpperCase())) {
+        return res.status(400).json({ error: "Invalid PAN format (expected ABCDE1234F)" });
+      }
+      req.body.pan = req.body.pan.toUpperCase();
+    }
+
+    if (req.body.aadhaar) {
+      const cleanAadhaar = String(req.body.aadhaar).replace(/[\s-]/g, '');
+      const aadhaarRegex = /^\d{12}$/;
+      if (!aadhaarRegex.test(cleanAadhaar)) {
+        return res.status(400).json({ error: "Invalid Aadhaar format (expected 12 digits)" });
+      }
+      req.body.aadhaar = cleanAadhaar;
+    }
+
     const updateData = mapBodyToSnakeCase(req.body);
+    if (updateData.pan) updateData.pan = encryptPII(updateData.pan);
+    if (updateData.aadhaar) updateData.aadhaar = encryptPII(updateData.aadhaar);
 
     const { data: user, error: updateError } = await supabase
       .from('users')
@@ -259,6 +369,10 @@ export async function updateUser(req, res) {
 // 6️⃣ Delete user
 export async function deleteUser(req, res) {
   try {
+    if (req.user.userId !== req.params.id) {
+      return res.status(403).json({ error: "Access denied. You can only delete your own profile." });
+    }
+
     const { data: user, error: deleteError } = await supabase
       .from('users')
       .delete()
@@ -387,7 +501,7 @@ export async function walletAuth(req, res) {
         email: camelUser.email,
         walletAddress: camelUser.walletAddress
       },
-      process.env.JWT_SECRET || 'dev_jwt_secret_key',
+      EFFECTIVE_JWT_SECRET,
       { expiresIn: "24h" }
     );
 
@@ -406,5 +520,25 @@ export async function walletAuth(req, res) {
   } catch (err) {
     console.error('Wallet auth error:', err);
     res.status(500).json({ error: "Server error during wallet authentication" });
+  }
+}
+
+// 8️⃣ Get currently logged in user profile (using req.user.userId from token)
+export async function getCurrentUser(req, res) {
+  try {
+    const userId = req.user.userId;
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json({ user: mapUserToCamelCase(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 }

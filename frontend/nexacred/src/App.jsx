@@ -1,5 +1,5 @@
 import Header from "./components/Header";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import AuthModal from "./components/AuthModal";
 import useMetaMask from './hooks/useMetaMask';
@@ -22,15 +22,72 @@ export default function App() {
   // MetaMask wallet integration
   const wallet = useMetaMask();
   const [walletUser, setWalletUser] = useState(null);
+  const [loading, setLoading] = useState(!!token);
+
+  // Enhanced Logout
+  const handleLogout = useCallback(() => {
+    setUser(null);
+    setWalletUser(null);
+    setToken('');
+    localStorage.removeItem('token');
+    wallet.disconnectWallet();
+  }, [wallet]);
+
+  // Fetch current user if token exists on load
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchMe = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || '/api';
+        const res = await fetch(`${apiUrl}/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          if (data.user && data.user.walletAddress) {
+            setWalletUser({ address: data.user.walletAddress });
+          }
+        } else {
+          // Token is invalid/expired
+          handleLogout();
+        }
+      } catch (err) {
+        console.error("Failed to fetch user on mount:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMe();
+  }, [token, handleLogout]);
+
+  // Listen for unauthorized 401 events from fetch helper
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      handleLogout();
+      navigate('/');
+    };
+
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, [handleLogout, navigate]);
 
   // Register API
   const handleRegister = async (form) => {
     try {
       // In demo mode, simulate successful registration
       if (import.meta.env.VITE_ENABLE_DEMO_MODE === 'true') {
-        alert('Demo Mode: Registration successful! Please login.');
         setAuthOpen(true);
-        return;
+        return { success: true };
       }
       
       const apiUrl = import.meta.env.VITE_API_URL || '/api';
@@ -41,13 +98,13 @@ export default function App() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert('Registration successful! Please login.');
         setAuthOpen(true);
+        return { success: true };
       } else {
-        alert(data.error || 'Registration failed');
+        return { success: false, error: data.error || 'Registration failed' };
       }
     } catch (err) {
-      alert('Registration error');
+      return { success: false, error: 'Registration error: ' + err.message };
     }
   };
 
@@ -64,7 +121,7 @@ export default function App() {
         setWalletUser({ address: loginData.walletAddress });
         setAuthOpen(false);
         navigate('/dashboard');
-        return;
+        return { success: true };
       } else {
         // Traditional username/password authentication
         if (import.meta.env.VITE_ENABLE_DEMO_MODE === 'true') {
@@ -82,7 +139,7 @@ export default function App() {
           setWalletUser(null);
           setAuthOpen(false);
           navigate('/dashboard');
-          return;
+          return { success: true };
         }
         
         const apiUrl = import.meta.env.VITE_API_URL || '/api';
@@ -100,23 +157,27 @@ export default function App() {
           setWalletUser(null); // Clear wallet user for traditional login
           setAuthOpen(false);
           navigate('/dashboard');
+          return { success: true };
         } else {
-          alert(data.error || 'Login failed');
+          return { success: false, error: data.error || 'Login failed' };
         }
       }
     } catch (err) {
-      alert('Login error: ' + err.message);
+      return { success: false, error: 'Login error: ' + err.message };
     }
   };
 
-  // Enhanced Logout
-  const handleLogout = () => {
-    setUser(null);
-    setWalletUser(null);
-    setToken('');
-    localStorage.removeItem('token');
-    wallet.disconnectWallet();
-  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center text-white font-inter">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+          <p className="text-gray-400">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -134,7 +195,7 @@ export default function App() {
               user={user} 
               wallet={wallet}
               walletUser={walletUser}
-              token={token}
+              onUserUpdate={(updatedUser) => setUser(updatedUser)}
             />
           }
         />

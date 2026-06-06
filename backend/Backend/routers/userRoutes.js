@@ -7,7 +7,8 @@ import {
   getUserById,
   updateUser,
   deleteUser,
-  walletAuth
+  walletAuth,
+  getCurrentUser
 } from "../controllers/userController.js";
 import { authenticateToken } from "../middleware/auth.js";
 
@@ -20,6 +21,7 @@ router.post("/wallet-auth", walletAuth);
 
 // Protected user data routes
 router.get("/", authenticateToken, getUsers);
+router.get("/me", authenticateToken, getCurrentUser);
 router.get("/:id", authenticateToken, getUserById);
 router.put("/:id", authenticateToken, updateUser);
 router.delete("/:id", authenticateToken, deleteUser);

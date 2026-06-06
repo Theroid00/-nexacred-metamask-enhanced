@@ -6,109 +6,59 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 NexaCred Enhanced is a production-ready DeFi credit scoring platform that bridges traditional finance with Web3. It combines traditional ML-based credit scoring with blockchain transaction analysis, featuring MetaMask integration, hybrid authentication, and real-time risk assessment.
 
-## Architecture
+### Architecture
 
-The system follows a microservices architecture with these main components:
+The system follows a Serverless Backend + React Single Page App architecture:
 
 ### Frontend (React + Web3)
 - **Location**: `frontend/nexacred/`
 - **Tech Stack**: React 19.1, Vite 7.1, Tailwind CSS 4.1, ethers.js 6.8
-- **Key Features**: MetaMask integration, wallet authentication, risk report visualization
+- **Key Features**: MetaMask integration, wallet authentication, risk report visualization, and RAG chatbot interface.
 
 ### Backend Services
-1. **Main API Server** (`backend/Backend/`)
-   - Node.js + Express with MongoDB
-   - Handles user management, authentication, credit profiles
-   
-2. **Transaction Analyzer** (`backend/services/transactionAnalyzer.py`)
-   - FastAPI microservice for wallet risk analysis
-   - Generates credit scores based on on-chain behavior
+1. **Serverless API** (`api/index.js` exporting the Express app)
+   - Node.js + Express with Supabase PostgreSQL.
+   - Handles user authentication, profile updates, chatbot queries, dynamic risk analysis, and transaction history logs.
 
-3. **Legacy Flask API** (`backend/app.py`)
-   - Original Flask-based credit scoring system
-   - Contains ML model integration
+2. **On-Demand Event Syncing**
+   - Synchronizes smart contract logs (`LoanRequested` / `LoanFunded`) on-demand when a wallet connects.
+
+3. **Etherscan Tx Crawler**
+   - Integrates with Etherscan API to perform real-time on-chain transaction analysis and dynamic credit risk scoring.
 
 ### Blockchain Layer
 - **Smart Contracts**: `blockchain/contracts/`
-- **NexaCred.sol**: P2P lending platform with credit integration
-- **CreditScore.sol**: Immutable credit score storage and verification
-- **Network Support**: Ethereum, Polygon, Sepolia, Arbitrum
-
-### ML Components
-- **Credit Scoring**: `ml/Credit_Scoring/` - AAVE protocol-based scoring
-- **RAG Chatbot**: `ml/rag_chatbot/` - AI-powered customer support
+- **NexaCred.sol**: P2P lending platform with credit integration.
+- **CreditScore.sol**: Immutable credit score registry and oracle verification.
+- **Network Support**: Ethereum, Polygon, Sepolia, Arbitrum.
 
 ## Common Development Commands
 
+### Run Full Stack Locally
+```bash
+npm install                # Install root dependencies
+npm run dev                # Start frontend (port 3000) and backend (port 5001) concurrently
+```
+
 ### Frontend Development
 ```bash
-cd frontend/nexacred
-npm install                 # Install dependencies
-npm run dev                # Start development server (http://localhost:5173)
-npm run build              # Build for production
-npm run lint               # Run ESLint
+npm run dev:frontend       # Start Vite dev server (http://localhost:3000)
+npm run build:frontend     # Build React app for production
+npm run lint:frontend      # Run ESLint check
 ```
 
-### Main Backend API
+### Backend Development
 ```bash
-cd backend/Backend
-npm install                 # Install dependencies
-npm start                  # Start Node.js server (http://localhost:5000)
-```
-
-### Transaction Analyzer Service
-```bash
-cd backend/services
-pip install -r requirements.txt
-python -m uvicorn transactionAnalyzer:app --reload --port 8000
-# Runs on http://localhost:8000 with API docs at /docs
-```
-
-### Legacy Flask Backend
-```bash
-cd backend
-pip install -r requirements.txt
-python app.py              # Start Flask server (http://localhost:5000)
+npm run dev:backend        # Start Express backend with nodemon (http://localhost:5001)
 ```
 
 ### Blockchain Development
 ```bash
 cd blockchain
-npm install                 # Install Hardhat and dependencies
-npm run compile            # Compile smart contracts
-npm run test              # Run contract tests
-npm run node              # Start local Hardhat network
-npm run deploy:local      # Deploy contracts locally
-npm run deploy:testnet    # Deploy to Sepolia testnet
-npm run deploy:mainnet    # Deploy to mainnet (production)
-```
-
-### ML Model Training
-```bash
-cd ml/Credit_Scoring
-pip install -r requirements.txt
-python scripts/train_model.py        # Train credit scoring model
-python scripts/feature_engineering.py # Generate features from transaction data
-streamlit run app.py                 # Launch ML model dashboard
-```
-
-### Running Full Stack Locally
-```bash
-# Terminal 1: Start MongoDB (required)
-brew services start mongodb/brew/mongodb-community  # macOS
-# OR: sudo systemctl start mongod  # Linux
-
-# Terminal 2: Frontend
-cd frontend/nexacred && npm run dev
-
-# Terminal 3: Main Backend
-cd backend/Backend && npm start
-
-# Terminal 4: Transaction Analyzer
-cd backend/services && python -m uvicorn transactionAnalyzer:app --reload --port 8000
-
-# Terminal 5 (Optional): Local blockchain
-cd blockchain && npx hardhat node
+npm install                # Install Hardhat and dependencies
+npx hardhat compile        # Compile smart contracts
+npx hardhat test           # Run contract tests
+npx hardhat node           # Start local Hardhat network
 ```
 
 ## Key Integration Points

@@ -7,7 +7,6 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
   const {
     isConnected,
     account,
-    signMessage,
     connectWallet,
     isLoading: walletLoading,
     error: walletError
@@ -70,16 +69,17 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
         onClose();
       } else {
         console.error('Wallet authentication failed:', data.error);
-        alert('Wallet authentication failed: ' + (data.error || 'Unknown error'));
+        setError('Wallet authentication failed: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Wallet auth error:', error);
-      alert('Wallet authentication error: ' + error.message);
+      setError('Wallet authentication error: ' + error.message);
     } finally {
       setWalletAuthLoading(false);
     }
   };
   const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     username: "",
     email: "",
@@ -123,12 +123,23 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     if (isLogin) {
-      onLogin({ username: form.username, password: form.password });
+      const result = await onLogin({ username: form.username, password: form.password });
+      if (result && !result.success) {
+        setError(result.error);
+      }
     } else {
-      onRegister(form);
+      const result = await onRegister(form);
+      if (result && !result.success) {
+        setError(result.error);
+      } else if (result && result.success) {
+        // Switch to login tab on successful registration
+        setIsLogin(true);
+        setError("Registration successful! Please login.");
+      }
     }
   };
 
@@ -153,10 +164,10 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
           position: 'absolute', top: 12, right: 16, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer', fontWeight: 700
         }}>&times;</button>
         <div style={{ display: 'flex', marginBottom: 24, background: '#23232b', borderRadius: 8, overflow: 'hidden', boxShadow: 'none', border: 'none' }}>
-          <button onClick={() => setIsLogin(true)} style={{
+          <button onClick={() => { setIsLogin(true); setError(""); }} style={{
             flex: 1, padding: 12, border: 'none', borderRadius: '8px 0 0 8px', background: isLogin ? '#2563eb' : 'transparent', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 16, transition: 'background 0.2s'
           }}>Login</button>
-          <button onClick={() => setIsLogin(false)} style={{
+          <button onClick={() => { setIsLogin(false); setError(""); }} style={{
             flex: 1, padding: 12, border: 'none', borderRadius: '0 8px 8px 0', background: !isLogin ? '#2563eb' : 'transparent', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 16, transition: 'background 0.2s'
           }}>Register</button>
         </div>
@@ -173,6 +184,20 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
             scrollbarColor: 'transparent transparent',
           }}
         >
+          {error && (
+            <div style={{
+              background: error.includes("successful") ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+              border: error.includes("successful") ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+              color: error.includes("successful") ? '#34d399' : '#f87171',
+              padding: 10,
+              borderRadius: 8,
+              fontSize: 14,
+              textAlign: 'center',
+              fontWeight: 500
+            }}>
+              {error}
+            </div>
+          )}
           {isLogin ? (
             <>
               <input name="username" placeholder="Username" value={form.username} onChange={handleChange} required style={{

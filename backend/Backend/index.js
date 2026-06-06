@@ -20,7 +20,7 @@ app.use("/api/history", historyRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/risk-analysis", riskRoutes);
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

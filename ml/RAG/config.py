@@ -15,7 +15,7 @@ class Config:
     """Configuration class for RAG chatbot settings."""
     
     # Replicate AI Configuration  
-    REPLICATE_API_TOKEN: str = os.getenv("REPLICATE_API_TOKEN", "r8_5tiCkDeDCv1j1zykH46zcsugv1cOu202WB3kQ")
+    REPLICATE_API_TOKEN: str = os.getenv("REPLICATE_API_TOKEN", "")
     REPLICATE_MODEL: str = os.getenv("REPLICATE_MODEL", "ibm-granite/granite-3.3-8b-instruct")
     
     # MongoDB Atlas Configuration

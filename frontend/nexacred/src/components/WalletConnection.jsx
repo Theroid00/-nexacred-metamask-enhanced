@@ -28,11 +28,6 @@ const WalletConnection = ({
     }
   };
 
-  // Format address for display
-  const formatAddress = (address) => {
-    if (!address) return '';
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
 
   // Get network icon color
   const getNetworkColor = (chainId) => {

@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import supabase from '../config/supabaseClient.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 dotenv.config();
 
@@ -63,7 +64,7 @@ const getLocalResponse = (query) => {
  * POST /api/chatbot/query
  * Process user query through RAG pipeline / LLM endpoint / local fallback
  */
-router.post('/query', async (req, res) => {
+router.post('/query', authenticateToken, async (req, res) => {
   try {
     const { query, userId } = req.body;
 

@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
 
+// Network configurations
+const networks = {
+  '0x1': { name: 'Ethereum Mainnet', currency: 'ETH' },
+  '0x89': { name: 'Polygon', currency: 'MATIC' },
+  '0xaa36a7': { name: 'Sepolia Testnet', currency: 'SEP ETH' },
+  '0xa4b1': { name: 'Arbitrum One', currency: 'ETH' },
+};
+
 const useMetaMask = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [account, setAccount] = useState(null);
@@ -10,14 +18,6 @@ const useMetaMask = () => {
   const [signer, setSigner] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Network configurations
-  const networks = {
-    '0x1': { name: 'Ethereum Mainnet', currency: 'ETH' },
-    '0x89': { name: 'Polygon', currency: 'MATIC' },
-    '0xaa36a7': { name: 'Sepolia Testnet', currency: 'SEP ETH' },
-    '0xa4b1': { name: 'Arbitrum One', currency: 'ETH' },
-  };
 
   // Check if MetaMask is installed
   const isMetaMaskInstalled = useCallback(() => {
