@@ -294,7 +294,8 @@ export async function walletAuth(req, res) {
         return res.status(400).json({ error: "Invalid signature" });
       }
     } catch (signatureError) {
-      console.warn('Signature verification failed, accepting for development:', signatureError.message);
+      console.error('Signature verification failed:', signatureError.message);
+      return res.status(400).json({ error: "Signature verification failed: " + signatureError.message });
     }
 
     const normalizedAddress = walletAddress.toLowerCase();
