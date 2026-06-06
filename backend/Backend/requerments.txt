@@ -1,8 +1,0 @@
-mongodb
-@types/node 
-express
-mongoose 
-dotenv 
-cors
-bcryptjs
-jsonwebtoken
