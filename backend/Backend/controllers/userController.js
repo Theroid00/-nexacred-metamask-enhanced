@@ -241,6 +241,14 @@ export async function updateUser(req, res) {
 
     if (updateError) throw updateError;
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // If credit score was updated, push it to the blockchain via oracle helper
+    if (req.body.existingCreditScore && user.wallet_address) {
+      import('./blockchainSyncController.js').then(({ pushScoreToChain }) => {
+        pushScoreToChain(user.wallet_address, Number(user.existing_credit_score));
+      }).catch(err => console.error("Oracle score push trigger failed:", err.message));
+    }
+
     res.json({ message: "User updated", user: mapUserToCamelCase(user) });
   } catch (err) {
     console.error(err);
@@ -351,6 +359,11 @@ export async function walletAuth(req, res) {
 
       if (insertError) throw insertError;
       user = createdUser;
+
+      // New Web3 user gets default score registered on blockchain oracle
+      import('./blockchainSyncController.js').then(({ pushScoreToChain }) => {
+        pushScoreToChain(normalizedAddress, 650);
+      }).catch(err => console.error("Oracle score push trigger failed:", err.message));
     } else {
       // Update last activity
       const { data: updatedUser, error: updateError } = await supabase

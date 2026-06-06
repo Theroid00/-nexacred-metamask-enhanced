@@ -68,6 +68,35 @@ export default function Dashboard({ user, wallet, walletUser, token, onUserUpdat
       });
   }, [user, borrowSuccess]);
 
+  // Sync blockchain loan events when wallet is connected
+  useEffect(() => {
+    if (!wallet?.account || !user?._id) return;
+    
+    const syncBlockchain = async () => {
+      try {
+        const res = await fetch(`/api/risk-analysis/sync/${wallet.account}`);
+        const data = await res.json();
+        if (data.success) {
+          console.log("On-chain events synchronized successfully.");
+          // Trigger history reload to ensure the Supabase view aligns instantly with the blockchain state
+          const historyRes = await fetch(`/api/history/user/${user._id}`);
+          const historyData = await historyRes.json();
+          if (historyData.success) {
+            setUserHistory(historyData.history);
+            const pending = historyData.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
+            setPendingRequests(pending.length);
+            setLendingRequests(pending);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to sync with blockchain on-demand:", err);
+      }
+    };
+
+    syncBlockchain();
+  }, [wallet?.account, user?._id]);
+
+
   if (!user) return <div className="text-center p-8 font-inter">Loading...</div>;
 
   // Open edit modal and prefill form

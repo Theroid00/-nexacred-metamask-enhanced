@@ -91,7 +91,8 @@ CREATE TABLE IF NOT EXISTS history (
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
     request_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     response_date TIMESTAMP WITH TIME ZONE,
-    message TEXT
+    message TEXT,
+    blockchain_loan_id INTEGER UNIQUE
 );
 
 CREATE INDEX IF NOT EXISTS idx_history_borrower ON history(borrower);

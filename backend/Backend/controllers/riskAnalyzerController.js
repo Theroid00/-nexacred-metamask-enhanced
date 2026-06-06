@@ -1,5 +1,8 @@
 // Port of the Python NexaCred Transaction Analyzer to native Node.js Express Controller
 import { ethers } from "ethers";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Protocol risk classifications
 const PROTOCOL_RISK_LEVELS = {
@@ -78,8 +81,8 @@ const sampleSize = (arr, size, randomFn) => {
   return shuffled.slice(0, size);
 };
 
-// Fetch transaction history (mock logic matched from original Python code)
-const fetchTransactions = (walletAddress) => {
+// Fetch mock transactions (fallback logic)
+const fetchMockTransactions = (walletAddress) => {
   const seed = walletAddress.toLowerCase();
   const rand = seededRandom(seed);
   
@@ -137,8 +140,50 @@ const fetchTransactions = (walletAddress) => {
   return mockTransactions;
 };
 
+// Fetch real transactions using Etherscan API with mock fallback
+const fetchTransactions = async (walletAddress) => {
+  const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+  if (!etherscanApiKey || etherscanApiKey === "YourEtherscanAPIKey") {
+    console.log("Etherscan API key not set. Using mock transactions.");
+    return fetchMockTransactions(walletAddress);
+  }
+
+  try {
+    const url = `https://api.etherscan.io/api?module=account&action=txlist&address=${walletAddress}&startblock=0&endblock=99999999&sort=asc&apikey=${etherscanApiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+    
+    const result = await response.json();
+    if (result.status !== "1" || !result.result || result.result.length === 0) {
+      console.log("No live transactions found on Etherscan or rate-limit hit. Falling back to mock transactions.");
+      return fetchMockTransactions(walletAddress);
+    }
+
+    // Map Etherscan transaction list to NexaCred schema
+    return result.result.map(tx => {
+      const inputSig = tx.input && tx.input.length >= 10 ? tx.input.slice(0, 10).toLowerCase() : null;
+      const method = inputSig ? METHOD_SIGNATURES[inputSig] : null;
+      const protocol = tx.to ? PROTOCOL_ADDRESSES[tx.to.toLowerCase()] : null;
+
+      return {
+        hash: tx.hash,
+        from_address: tx.from.toLowerCase(),
+        to_address: tx.to ? tx.to.toLowerCase() : "",
+        value: tx.value,
+        gas_used: tx.gasUsed,
+        timestamp: parseInt(tx.timeStamp),
+        method,
+        protocol
+      };
+    });
+  } catch (error) {
+    console.error("Failed to fetch from Etherscan. Falling back to mock transactions. Error:", error.message);
+    return fetchMockTransactions(walletAddress);
+  }
+};
+
 // Analyze transactions and generate risk report
-const analyzeTransactions = (walletAddress, transactions) => {
+const analyzeTransactions = (walletAddress, transactions, isMock = false) => {
   const totalTransactions = transactions.length;
   
   if (totalTransactions === 0) {
@@ -152,7 +197,8 @@ const analyzeTransactions = (walletAddress, transactions) => {
       risk_factors: ["No transaction history available"],
       positive_factors: [],
       defi_protocols: [],
-      recommendation: "Insufficient data for credit assessment"
+      recommendation: "Insufficient data for credit assessment",
+      source: "live"
     };
   }
 
@@ -296,7 +342,8 @@ const analyzeTransactions = (walletAddress, transactions) => {
     positive_factors: positiveFactors,
     defi_protocols: defiProtocols,
     recommendation: recommendation,
-    generated_at: currentTimestamp
+    generated_at: currentTimestamp,
+    source: isMock ? "simulated" : "live"
   };
 };
 
@@ -309,8 +356,10 @@ export const getRiskAnalysis = async (req, res) => {
       return res.status(400).json({ error: "Invalid Ethereum address format" });
     }
 
-    const txs = fetchTransactions(walletAddress);
-    const report = analyzeTransactions(walletAddress, txs);
+    const txs = await fetchTransactions(walletAddress);
+    // Determine if Etherscan list or mock data was returned
+    const isMock = txs.length > 0 && txs[0].hash.length === 66 && txs[0].value.length < 25; // Simple heuristic to distinguish real Etherscan mapped object
+    const report = analyzeTransactions(walletAddress, txs, isMock);
     
     res.json(report);
   } catch (err) {
