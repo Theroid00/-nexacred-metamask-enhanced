@@ -1,26 +1,127 @@
-// /controllers/userController.js
-import User from '../modals/User.js';
+import supabase from '../config/supabaseClient.js';
 import bcrypt from "bcryptjs";  
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { ethers } from "ethers";
+
 dotenv.config();
+
+// Helper to map DB snake_case structure to Frontend camelCase structure
+const mapUserToCamelCase = (dbUser) => {
+  if (!dbUser) return null;
+  return {
+    _id: dbUser.id, // Map Postgres id to Mongo _id for frontend compatibility
+    username: dbUser.username,
+    email: dbUser.email,
+    walletAddress: dbUser.wallet_address,
+    walletConnectedAt: dbUser.wallet_connected_at,
+    lastWalletActivity: dbUser.last_wallet_activity,
+    firstName: dbUser.first_name,
+    middleName: dbUser.middle_name,
+    lastName: dbUser.last_name,
+    fatherOrSpouseName: dbUser.father_or_spouse_name,
+    dateOfBirth: dbUser.date_of_birth,
+    phoneNumber: dbUser.phone_number,
+    pan: dbUser.pan,
+    aadhaar: dbUser.aadhaar,
+    streetAddress: dbUser.street_address,
+    areaLocality: dbUser.area_locality,
+    city: dbUser.city,
+    state: dbUser.state,
+    pinCode: dbUser.pin_code,
+    country: dbUser.country,
+    employmentStatus: dbUser.employment_status,
+    occupationCategory: dbUser.occupation_category,
+    companyName: dbUser.company_name,
+    yearsOfExperience: dbUser.years_of_experience,
+    monthlyIncomeRange: dbUser.monthly_income_range,
+    hasCreditAccounts: dbUser.has_credit_accounts,
+    creditPurpose: dbUser.credit_purpose,
+    hasBankAccount: dbUser.has_bank_account,
+    primaryBankName: dbUser.primary_bank_name,
+    existingCreditScore: dbUser.existing_credit_score,
+    termsAccepted: dbUser.terms_accepted,
+    privacyPolicyAccepted: dbUser.privacy_policy_accepted,
+    consentCreditBureau: dbUser.consent_credit_bureau,
+    ageVerified: dbUser.age_verified,
+    itrStatus: dbUser.itr_status,
+    educationalQualification: dbUser.educational_qualification,
+    languagePreference: dbUser.language_preference,
+    communicationMethod: dbUser.communication_method,
+    maritalStatus: dbUser.marital_status,
+    numberOfDependents: dbUser.number_of_dependents,
+    createdAt: dbUser.created_at
+  };
+};
+
+const mapBodyToSnakeCase = (body) => {
+  const mapping = {
+    username: 'username',
+    email: 'email',
+    passwordHash: 'password_hash',
+    walletAddress: 'wallet_address',
+    walletConnectedAt: 'wallet_connected_at',
+    lastWalletActivity: 'last_wallet_activity',
+    firstName: 'first_name',
+    middleName: 'middle_name',
+    lastName: 'last_name',
+    fatherOrSpouseName: 'father_or_spouse_name',
+    dateOfBirth: 'date_of_birth',
+    phoneNumber: 'phone_number',
+    pan: 'pan',
+    aadhaar: 'aadhaar',
+    streetAddress: 'street_address',
+    areaLocality: 'area_locality',
+    city: 'city',
+    state: 'state',
+    pinCode: 'pin_code',
+    country: 'country',
+    employmentStatus: 'employment_status',
+    occupationCategory: 'occupation_category',
+    companyName: 'company_name',
+    yearsOfExperience: 'years_of_experience',
+    monthlyIncomeRange: 'monthly_income_range',
+    hasCreditAccounts: 'has_credit_accounts',
+    creditPurpose: 'credit_purpose',
+    hasBankAccount: 'has_bank_account',
+    primaryBankName: 'primary_bank_name',
+    existingCreditScore: 'existing_credit_score',
+    termsAccepted: 'terms_accepted',
+    privacyPolicyAccepted: 'privacy_policy_accepted',
+    consentCreditBureau: 'consent_credit_bureau',
+    ageVerified: 'age_verified',
+    itrStatus: 'itr_status',
+    educationalQualification: 'educational_qualification',
+    languagePreference: 'language_preference',
+    communicationMethod: 'communication_method',
+    maritalStatus: 'marital_status',
+    numberOfDependents: 'number_of_dependents'
+  };
+
+  const result = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (mapping[key] !== undefined && value !== undefined) {
+      result[mapping[key]] = value;
+    }
+  }
+  return result;
+};
 
 // 1️⃣ Register a new user
 export async function registerUser(req, res) {
   try {
-    const {
-      username, email, password, firstName, middleName, lastName, fatherOrSpouseName, dateOfBirth, phoneNumber, pan, aadhaar,
-      streetAddress, areaLocality, city, state, pinCode, country,
-      employmentStatus, occupationCategory, companyName, yearsOfExperience, monthlyIncomeRange,
-      hasCreditAccounts, creditPurpose, hasBankAccount, primaryBankName, existingCreditScore,
-      termsAccepted, privacyPolicyAccepted, consentCreditBureau, ageVerified, itrStatus,
-      educationalQualification, languagePreference, communicationMethod, maritalStatus, numberOfDependents
-    } = req.body;
+    const body = req.body;
+    const { username, email, password } = body;
 
     // Check if user exists
-    const existing = await User.findOne({ $or: [{ email }, { username }] });
-    if (existing) {
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('username, email')
+      .or(`email.eq.${email},username.eq.${username}`)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+    if (existingUser) {
       return res.status(400).json({ error: "Username or Email already exists" });
     }
 
@@ -28,21 +129,23 @@ export async function registerUser(req, res) {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Save user
-    const user = await User.create({
-      username, email, passwordHash,
-      firstName, middleName, lastName, fatherOrSpouseName, dateOfBirth, phoneNumber, pan, aadhaar,
-      streetAddress, areaLocality, city, state, pinCode, country,
-      employmentStatus, occupationCategory, companyName, yearsOfExperience, monthlyIncomeRange,
-      hasCreditAccounts, creditPurpose, hasBankAccount, primaryBankName, existingCreditScore,
-      termsAccepted, privacyPolicyAccepted, consentCreditBureau, ageVerified, itrStatus,
-      educationalQualification, languagePreference, communicationMethod, maritalStatus, numberOfDependents
-    });
+    // Prepare database fields
+    const insertData = mapBodyToSnakeCase(body);
+    insertData.password_hash = passwordHash;
 
-    res.status(201).json({ message: "User registered successfully", user });
+    // Save user in Supabase
+    const { data: newUser, error: insertError } = await supabase
+      .from('users')
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    res.status(201).json({ message: "User registered successfully", user: mapUserToCamelCase(newUser) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: err.message || "Server error" });
   }
 }
 
@@ -50,24 +153,30 @@ export async function registerUser(req, res) {
 export async function loginUser(req, res) {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username });
+    
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
     if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
+    const camelUser = mapUserToCamelCase(user);
+
     const token = jwt.sign(
-      { userId: user._id, username: user.username, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { userId: camelUser._id, username: camelUser.username, email: camelUser.email },
+      process.env.JWT_SECRET || 'dev_jwt_secret_key',
+      { expiresIn: "14d" }
     );
 
-    // Optionally, save the token in the database if you want to track logins
-    // user.token = token;
-    // await user.save();
-
-    res.json({ token, user });
+    res.json({ token, user: camelUser });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -77,13 +186,25 @@ export async function getUsers(req, res) {
   try {
     const { username } = req.query;
     if (username) {
-      const user = await User.findOne({ username }).select("-passwordHash");
+      const { data: user, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
       if (!user) return res.status(404).json({ error: "User not found" });
-      return res.json({ user });
+      return res.json({ user: mapUserToCamelCase(user) });
     }
-    const users = await User.find().select("-passwordHash"); // hide password
-    res.json(users);
+
+    const { data: users, error: fetchAllError } = await supabase
+      .from('users')
+      .select('*');
+
+    if (fetchAllError) throw fetchAllError;
+    res.json(users.map(mapUserToCamelCase));
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -91,10 +212,17 @@ export async function getUsers(req, res) {
 // 4️⃣ Get user by ID
 export async function getUserById(req, res) {
   try {
-    const user = await User.findById(req.params.id).select("-passwordHash");
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json(user);
+    res.json(mapUserToCamelCase(user));
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -102,28 +230,20 @@ export async function getUserById(req, res) {
 // 5️⃣ Update user
 export async function updateUser(req, res) {
   try {
-    // Only allow updating fields that exist in the schema (excluding passwordHash, createdAt, etc.)
-    const updatableFields = [
-      "username", "email", "walletAddress", "walletConnectedAt", "lastWalletActivity",
-      "firstName", "middleName", "lastName", "fatherOrSpouseName", "dateOfBirth", "phoneNumber", "pan", "aadhaar",
-      "streetAddress", "areaLocality", "city", "state", "pinCode", "country",
-      "employmentStatus", "occupationCategory", "companyName", "yearsOfExperience", "monthlyIncomeRange",
-      "hasCreditAccounts", "creditPurpose", "hasBankAccount", "primaryBankName", "existingCreditScore",
-      "termsAccepted", "privacyPolicyAccepted", "consentCreditBureau", "ageVerified", "itrStatus",
-      "educationalQualification", "languagePreference", "communicationMethod", "maritalStatus", "numberOfDependents"
-    ];
-    const updateData = {};
-    for (const field of updatableFields) {
-      if (field in req.body) updateData[field] = req.body[field];
-    }
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    ).select("-passwordHash");
+    const updateData = mapBodyToSnakeCase(req.body);
+
+    const { data: user, error: updateError } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select()
+      .maybeSingle();
+
+    if (updateError) throw updateError;
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ message: "User updated", user });
+    res.json({ message: "User updated", user: mapUserToCamelCase(user) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -131,10 +251,18 @@ export async function updateUser(req, res) {
 // 6️⃣ Delete user
 export async function deleteUser(req, res) {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const { data: user, error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id)
+      .select()
+      .maybeSingle();
+
+    if (deleteError) throw deleteError;
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ message: "User deleted" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 }
@@ -148,25 +276,29 @@ export async function walletAuth(req, res) {
       return res.status(400).json({ error: "Wallet address, message, and signature are required" });
     }
 
-    // Validate wallet address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
       return res.status(400).json({ error: "Invalid wallet address format" });
     }
 
-    // Verify signature (in production, you'd implement proper signature verification)
-    // For now, we'll use a basic verification
     try {
       const recoveredAddress = ethers.verifyMessage(message, signature);
       if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
         return res.status(400).json({ error: "Invalid signature" });
       }
     } catch (signatureError) {
-      // Fallback: accept the signature for development (remove in production)
       console.warn('Signature verification failed, accepting for development:', signatureError.message);
     }
 
+    const normalizedAddress = walletAddress.toLowerCase();
+
     // Check if user exists with this wallet address
-    let user = await User.findOne({ walletAddress: walletAddress.toLowerCase() });
+    let { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('wallet_address', normalizedAddress)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
     
     if (!user) {
       // Create new user with wallet authentication
@@ -174,71 +306,87 @@ export async function walletAuth(req, res) {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(defaultPassword, salt);
       
-      user = await User.create({
-        username: `wallet_${walletAddress.slice(-8).toLowerCase()}`,
-        email: `${walletAddress.toLowerCase()}@nexacred.wallet`,
-        passwordHash,
-        walletAddress: walletAddress.toLowerCase(),
-        walletConnectedAt: new Date(),
-        lastWalletActivity: new Date(),
+      const insertData = {
+        username: `wallet_${normalizedAddress.slice(-8).toLowerCase()}`,
+        email: `${normalizedAddress}@nexacred.wallet`,
+        password_hash: passwordHash,
+        wallet_address: normalizedAddress,
+        wallet_connected_at: new Date().toISOString(),
+        last_wallet_activity: new Date().toISOString(),
         
-        // Default values for required fields
-        firstName: 'Wallet',
-        lastName: 'User',
-        dateOfBirth: new Date('1990-01-01'),
-        phoneNumber: '+919999999999',
+        first_name: 'Wallet',
+        last_name: 'User',
+        date_of_birth: '1990-01-01',
+        phone_number: '+919999999999',
         pan: 'AAAAA0000A',
         aadhaar: '999999999999',
-        streetAddress: 'Web3 Address',
-        areaLocality: 'Blockchain',
+        street_address: 'Web3 Address',
+        area_locality: 'Blockchain',
         city: 'Crypto',
         state: 'Decentralized',
-        pinCode: '000000',
+        pin_code: '000000',
         country: 'Global',
-        employmentStatus: 'Self-employed Professional',
-        occupationCategory: 'Other Professional',
-        companyName: 'Decentralized Autonomous',
-        yearsOfExperience: 1,
-        monthlyIncomeRange: '₹50,000 - ₹1,00,000',
-        hasCreditAccounts: false,
-        creditPurpose: 'Personal Loan',
-        hasBankAccount: true,
-        primaryBankName: 'Crypto Bank',
-        existingCreditScore: 650,
-        termsAccepted: true,
-        privacyPolicyAccepted: true,
-        consentCreditBureau: true,
-        ageVerified: true,
-        itrStatus: 'Filed ITR in past 2 years'
-      });
+        employment_status: 'Self-employed Professional',
+        occupation_category: 'Other Professional',
+        company_name: 'Decentralized Autonomous',
+        years_of_experience: 1,
+        monthly_income_range: '₹50,000 - ₹1,00,000',
+        has_credit_accounts: false,
+        credit_purpose: 'Personal Loan',
+        has_bank_account: true,
+        primary_bank_name: 'Crypto Bank',
+        existing_credit_score: 650,
+        terms_accepted: true,
+        privacy_policy_accepted: true,
+        consent_credit_bureau: true,
+        age_verified: true,
+        itr_status: 'Filed ITR in past 2 years'
+      };
+
+      const { data: createdUser, error: insertError } = await supabase
+        .from('users')
+        .insert([insertData])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      user = createdUser;
     } else {
       // Update last activity
-      user.lastWalletActivity = new Date();
-      await user.save();
+      const { data: updatedUser, error: updateError } = await supabase
+        .from('users')
+        .update({ last_wallet_activity: new Date().toISOString() })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      user = updatedUser;
     }
 
-    // Generate JWT token
+    const camelUser = mapUserToCamelCase(user);
+
     const token = jwt.sign(
       { 
-        userId: user._id, 
-        username: user.username, 
-        email: user.email,
-        walletAddress: user.walletAddress
+        userId: camelUser._id, 
+        username: camelUser.username, 
+        email: camelUser.email,
+        walletAddress: camelUser.walletAddress
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'dev_jwt_secret_key',
       { expiresIn: "24h" }
     );
 
     res.json({ 
       token, 
       user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        walletAddress: user.walletAddress,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        walletConnectedAt: user.walletConnectedAt
+        _id: camelUser._id,
+        username: camelUser.username,
+        email: camelUser.email,
+        walletAddress: camelUser.walletAddress,
+        firstName: camelUser.firstName,
+        lastName: camelUser.lastName,
+        walletConnectedAt: camelUser.walletConnectedAt
       }
     });
   } catch (err) {

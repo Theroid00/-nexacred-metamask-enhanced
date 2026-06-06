@@ -1,5 +1,30 @@
-import History from "../modals/History.js";
-import User from "../modals/User.js";
+import supabase from '../config/supabaseClient.js';
+
+// Helper to map DB history to Frontend format
+const mapHistoryToCamelCase = (h) => {
+  if (!h) return null;
+  return {
+    _id: h.id,
+    borrower: h.borrower ? {
+      _id: h.borrower.id,
+      username: h.borrower.username,
+      firstName: h.borrower.first_name,
+      lastName: h.borrower.last_name
+    } : null,
+    lender: h.lender ? {
+      _id: h.lender.id,
+      username: h.lender.username,
+      firstName: h.lender.first_name,
+      lastName: h.lender.last_name
+    } : null,
+    amount: parseFloat(h.amount),
+    type: h.type,
+    status: h.status,
+    requestDate: h.request_date,
+    responseDate: h.response_date,
+    message: h.message
+  };
+};
 
 // Create a new borrow/lend request
 export const createRequest = async (req, res) => {
@@ -8,10 +33,28 @@ export const createRequest = async (req, res) => {
     if (!borrower || !lender || !amount || !type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    const history = new History({ borrower, lender, amount, type, message });
-    await history.save();
-    res.status(201).json({ success: true, history });
+
+    const { data: newHistory, error: insertError } = await supabase
+      .from('history')
+      .insert([{
+        borrower,
+        lender,
+        amount: parseFloat(amount),
+        type,
+        message
+      }])
+      .select(`
+        id, amount, type, status, request_date, response_date, message,
+        borrower:users!borrower(id, username, first_name, last_name),
+        lender:users!lender(id, username, first_name, last_name)
+      `)
+      .single();
+
+    if (insertError) throw insertError;
+
+    res.status(201).json({ success: true, history: mapHistoryToCamelCase(newHistory) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -20,14 +63,22 @@ export const createRequest = async (req, res) => {
 export const getUserHistory = async (req, res) => {
   try {
     const { userId } = req.params;
-    const history = await History.find({
-      $or: [ { borrower: userId }, { lender: userId } ]
-    })
-      .populate('borrower', 'username firstName lastName')
-      .populate('lender', 'username firstName lastName')
-      .sort({ requestDate: -1 });
-    res.json({ success: true, history });
+
+    const { data: history, error: fetchError } = await supabase
+      .from('history')
+      .select(`
+        id, amount, type, status, request_date, response_date, message,
+        borrower:users!borrower(id, username, first_name, last_name),
+        lender:users!lender(id, username, first_name, last_name)
+      `)
+      .or(`borrower.eq.${userId},lender.eq.${userId}`)
+      .order('request_date', { ascending: false });
+
+    if (fetchError) throw fetchError;
+
+    res.json({ success: true, history: history.map(mapHistoryToCamelCase) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -41,13 +92,24 @@ export const updateRequestStatus = async (req, res) => {
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
-    const history = await History.findByIdAndUpdate(
-      id,
-      { status, responseDate: new Date() },
-      { new: true }
-    );
-    res.json({ success: true, history });
+
+    const { data: updatedHistory, error: updateError } = await supabase
+      .from('history')
+      .update({ status, response_date: new Date().toISOString() })
+      .eq('id', id)
+      .select(`
+        id, amount, type, status, request_date, response_date, message,
+        borrower:users!borrower(id, username, first_name, last_name),
+        lender:users!lender(id, username, first_name, last_name)
+      `)
+      .maybeSingle();
+
+    if (updateError) throw updateError;
+    if (!updatedHistory) return res.status(404).json({ error: "History record not found" });
+
+    res.json({ success: true, history: mapHistoryToCamelCase(updatedHistory) });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };

@@ -7,15 +7,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-node-backend.onrender.com/api/:path*"
-    },
-    {
-      "source": "/analyzer/:path*",
-      "destination": "https://your-fastapi-analyzer.onrender.com/:path*"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/$1"
     }
   ]
 }
