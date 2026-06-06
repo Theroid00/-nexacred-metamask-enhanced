@@ -98,11 +98,11 @@ router.post('/query', async (req, res) => {
     }
 
     // 2. Query external OpenAI-compatible API if configured
-    const apiUrl = process.env.CHATBOT_API_URL;
+    const apiUrl = process.env.CHATBOT_API_URL || "https://openrouter.ai/api/v1/chat/completions";
     const apiKey = process.env.CHATBOT_API_KEY;
-    const model = process.env.CHATBOT_MODEL || "gpt-3.5-turbo";
+    const model = process.env.CHATBOT_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
 
-    if (apiUrl && apiKey) {
+    if (apiKey) {
       try {
         const contextStr = retrievedDocs.length > 0 ? `Context information:\n${retrievedDocs.join('\n\n')}\n\n` : "";
         const systemPrompt = `You are NexaCred AI, a professional financial assistant helping users with credit scoring, lending, and blockchain finance. Always answer accurately and politely based on the provided context if present.`;
@@ -111,7 +111,9 @@ router.post('/query', async (req, res) => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://nexacred.vercel.app', // Required/recommended by OpenRouter
+            'X-Title': 'NexaCred AI Assistant'             // Required/recommended by OpenRouter
           },
           body: JSON.stringify({
             model: model,

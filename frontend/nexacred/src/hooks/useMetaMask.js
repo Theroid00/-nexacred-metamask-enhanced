@@ -56,7 +56,7 @@ const useMetaMask = () => {
   const connectWallet = useCallback(async () => {
     if (!isMetaMaskInstalled()) {
       setError('MetaMask is not installed. Please install MetaMask to continue.');
-      return false;
+      return null;
     }
 
     try {
@@ -80,7 +80,7 @@ const useMetaMask = () => {
       // Update balance
       await updateBalance(provider, address);
 
-      return true;
+      return { success: true, address, signer };
     } catch (err) {
       console.error('Error connecting wallet:', err);
       if (err.code === 4001) {
@@ -90,7 +90,7 @@ const useMetaMask = () => {
       } else {
         setError('Failed to connect wallet: ' + (err.message || 'Unknown error'));
       }
-      return false;
+      return null;
     } finally {
       setIsLoading(false);
     }

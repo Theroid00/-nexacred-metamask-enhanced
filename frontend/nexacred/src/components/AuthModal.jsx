@@ -20,19 +20,31 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
     try {
       setWalletAuthLoading(true);
       
-      if (!isConnected) {
-        const connected = await connectWallet();
-        if (!connected) {
+      let activeAccount = account;
+      let activeSigner = null;
+
+      if (!isConnected || !account) {
+        const connectionResult = await connectWallet();
+        if (!connectionResult) {
           console.error('Failed to connect wallet');
           return;
         }
+        activeAccount = connectionResult.address;
+        activeSigner = connectionResult.signer;
+      }
+
+      // If activeSigner is not set (because wallet was already connected), we fetch it from the browser provider
+      if (!activeSigner) {
+        const { ethers } = await import('ethers');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        activeSigner = await provider.getSigner();
       }
 
       // Create authentication message
-      const message = `Welcome to NexaCred! Please sign this message to authenticate your wallet.\n\nWallet: ${account}\nTimestamp: ${Date.now()}`;
+      const message = `Welcome to NexaCred! Please sign this message to authenticate your wallet.\n\nWallet: ${activeAccount}\nTimestamp: ${Date.now()}`;
       
-      // Sign message
-      const signature = await signMessage(message);
+      // Sign message using the active signer directly to avoid React state update lag
+      const signature = await activeSigner.signMessage(message);
       if (!signature) {
         console.error('Failed to sign message');
         return;
@@ -40,7 +52,7 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
 
       // Call wallet authentication API
       const walletAuthData = {
-        walletAddress: account,
+        walletAddress: activeAccount,
         message,
         signature
       };
@@ -54,7 +66,7 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
       const data = await response.json();
       if (response.ok) {
         // Successful wallet authentication
-        onLogin({ token: data.token, user: data.user, walletAddress: account });
+        onLogin({ token: data.token, user: data.user, walletAddress: activeAccount });
         onClose();
       } else {
         console.error('Wallet authentication failed:', data.error);
