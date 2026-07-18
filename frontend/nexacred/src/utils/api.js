@@ -13,7 +13,7 @@ export async function apiFetch(url, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const apiUrl = import.meta.env.VITE_API_URL || '';
+  const apiUrl = import.meta.env.VITE_API_URL || '/api';
   const cleanUrl = url.startsWith('/') ? url : `/${url}`;
   const fullUrl = url.startsWith('http') ? url : `${apiUrl}${cleanUrl}`;
 

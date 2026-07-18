@@ -8,7 +8,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: '/', // Vercel SPA routing requires absolute asset paths
   server: {
-    host: true,
     port: 3000,
     proxy: {
       '/api': {

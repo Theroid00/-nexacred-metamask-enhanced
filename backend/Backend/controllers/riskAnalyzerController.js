@@ -137,7 +137,7 @@ const fetchMockTransactions = (walletAddress) => {
   }
   
   mockTransactions.sort((a, b) => a.timestamp - b.timestamp);
-  return mockTransactions;
+  return mockTransactions.map(tx => ({ ...tx, _isMock: true }));
 };
 
 // Fetch real transactions using Etherscan API with mock fallback
@@ -358,7 +358,7 @@ export const getRiskAnalysis = async (req, res) => {
 
     const txs = await fetchTransactions(walletAddress);
     // Determine if Etherscan list or mock data was returned
-    const isMock = txs.length > 0 && txs[0].hash.length === 66 && txs[0].value.length < 25; // Simple heuristic to distinguish real Etherscan mapped object
+    const isMock = txs.length > 0 && txs[0]._isMock === true;
     const report = analyzeTransactions(walletAddress, txs, isMock);
     
     res.json(report);
