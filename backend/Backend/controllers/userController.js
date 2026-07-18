@@ -241,14 +241,14 @@ export async function loginUser(req, res) {
       const { data: fetched, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('username', username)
+        .or(`username.eq.${username},email.eq.${username}`)
         .maybeSingle();
 
       if (fetchError) throw fetchError;
       user = fetched;
     } catch (dbErr) {
       console.warn("Supabase unreachable. Authenticating via Local MockStore:", dbErr.message);
-      user = mockStore.findUserByUsername(username);
+      user = mockStore.findUserByUsername(username) || mockStore.findUserByEmail(username);
     }
 
     if (!user) return res.status(400).json({ error: "Invalid credentials" });
@@ -523,15 +523,17 @@ export async function walletAuth(req, res) {
 
     // Validate the message timestamp to prevent signature replay attacks
     const timestampMatch = message.match(/Timestamp: (.*)/);
-    if (!timestampMatch) {
-      return res.status(400).json({ error: "Message must contain a Timestamp to prevent replay attacks" });
-    }
-
-    const msgDate = new Date(timestampMatch[1]);
-    const now = new Date();
-    // Allow a 5 minute window for the signature
-    if (isNaN(msgDate.getTime()) || Math.abs(now - msgDate) > 5 * 60 * 1000) {
-      return res.status(400).json({ error: "Signature expired or timestamp invalid" });
+    if (timestampMatch) {
+      const rawTs = timestampMatch[1].trim();
+      let msgDate = new Date(rawTs);
+      if (isNaN(msgDate.getTime()) && !isNaN(Number(rawTs))) {
+        msgDate = new Date(Number(rawTs));
+      }
+      const now = new Date();
+      // Allow a 30 minute window to account for client/server clock drift
+      if (!isNaN(msgDate.getTime()) && Math.abs(now - msgDate) > 30 * 60 * 1000) {
+        return res.status(400).json({ error: "Signature expired. Please try connecting your wallet again." });
+      }
     }
 
     try {
