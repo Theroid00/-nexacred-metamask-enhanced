@@ -126,11 +126,12 @@ router.post('/query', authenticateToken, async (req, res) => {
 
         const response = await fetch(apiUrl, {
           method: 'POST',
+          signal: AbortSignal.timeout(4000),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://nexacred.vercel.app', // Required/recommended by OpenRouter
-            'X-Title': 'NexaCred AI Assistant'             // Required/recommended by OpenRouter
+            'HTTP-Referer': 'https://nexacred.vercel.app',
+            'X-Title': 'NexaCred AI Assistant'
           },
           body: JSON.stringify({
             model: model,
