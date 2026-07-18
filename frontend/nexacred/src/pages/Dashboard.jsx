@@ -47,6 +47,10 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
   const [borrowSuccess, setBorrowSuccess] = useState('');
   const [borrowError, setBorrowError] = useState('');
 
+  // DeFi Protocol Simulator State
+  const [simAmount, setSimAmount] = useState(5000);
+  const [simTerm, setSimTerm] = useState(12);
+
   // Lender notification state
   const [pendingRequests, setPendingRequests] = useState(0);
   const [lendingRequests, setLendingRequests] = useState([]);
@@ -414,6 +418,80 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
             networks={wallet?.networks || {}}
             isMetaMaskInstalled={wallet?.isMetaMaskInstalled || false}
           />
+
+          {/* Interactive DeFi Protocol Loan & LTV Simulator */}
+          <div className="bg-gray-900/70 border border-indigo-500/30 rounded-xl p-6 backdrop-blur-xl shadow-2xl glass-panel relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400 font-bold">⚡</div>
+                <h3 className="text-lg font-bold text-white tracking-wide">DeFi Credit & LTV Simulator</h3>
+              </div>
+              <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-[11px] font-semibold text-indigo-300">
+                Real-Time Risk Rate
+              </span>
+            </div>
+
+            {(() => {
+              const baseApr = Math.max(3.5, 14.0 - (((user?.existingCreditScore || 650) - 300) * 0.018)).toFixed(2);
+              const monthlyEst = ((simAmount * (1 + (parseFloat(baseApr) / 100))) / simTerm).toFixed(2);
+              return (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Principal Amount</span>
+                      <span className="text-white font-bold">${simAmount.toLocaleString()}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="500"
+                      max="50000"
+                      step="500"
+                      value={simAmount}
+                      onChange={(e) => setSimAmount(Number(e.target.value))}
+                      className="w-full accent-indigo-500 bg-gray-800 rounded-lg h-2 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-xs text-gray-400 mb-1">
+                      <span>Loan Duration</span>
+                      <span className="text-white font-bold">{simTerm} Months</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="3"
+                      max="36"
+                      step="3"
+                      value={simTerm}
+                      onChange={(e) => setSimTerm(Number(e.target.value))}
+                      className="w-full accent-cyan-500 bg-gray-800 rounded-lg h-2 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-gray-950/70 border border-gray-800 rounded-lg text-center">
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider">Estimated APR</div>
+                      <div className="text-xl font-extrabold text-emerald-400">{baseApr}%</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-gray-400 uppercase tracking-wider">Monthly Repayment</div>
+                      <div className="text-xl font-extrabold text-cyan-400">${monthlyEst}</div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setBorrowForm({ lenderUsername: 'demouser', amount: String(simAmount) });
+                      handleBorrow();
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-bold rounded-lg shadow-lg text-xs uppercase tracking-wider transition transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    Apply with Simulated Terms
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Traditional Actions */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6">
