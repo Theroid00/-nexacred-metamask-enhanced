@@ -304,7 +304,20 @@ export async function getUsers(req, res) {
       users = Array.from(mockStore.users.values());
     }
 
-    res.json(users.map(mapUserToCamelCase));
+    // Strip PII from the user list response to prevent exposure
+    const safeUsers = users.map(user => {
+      const camelUser = mapUserToCamelCase(user);
+      if (req.user && req.user.userId !== camelUser._id) {
+        delete camelUser.pan;
+        delete camelUser.aadhaar;
+        delete camelUser.phoneNumber;
+        delete camelUser.streetAddress;
+        delete camelUser.areaLocality;
+      }
+      return camelUser;
+    });
+
+    res.json(safeUsers);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
