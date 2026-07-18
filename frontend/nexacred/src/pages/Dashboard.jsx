@@ -185,7 +185,25 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
         return;
       }
       const lenderId = dataLender.user._id;
-      // Create borrow request
+
+      // If MetaMask is connected, trigger real Smart Contract requestLoan on-chain
+      if (wallet?.isConnected && wallet?.signer) {
+        const ethAmount = parseFloat(borrowForm.amount) > 10 ? 0.05 : (parseFloat(borrowForm.amount) || 0.01);
+        const onChainRes = await contractHelper.requestLoanOnChain({
+          amountETH: ethAmount,
+          interestRatePercent: 8.5,
+          durationDays: 30,
+          purpose: `Borrow request to ${borrowForm.lenderUsername}`
+        });
+
+        if (!onChainRes.success) {
+          setBorrowError('On-Chain Smart Contract Failed or Canceled: ' + onChainRes.error);
+          setBorrowLoading(false);
+          return;
+        }
+      }
+
+      // Create borrow request in history
       const res = await apiFetch('/history', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
