@@ -40,7 +40,7 @@ const AuthModal = ({ isOpen, onClose, onLogin, onRegister }) => {
       }
 
       // Create authentication message
-      const message = `Welcome to NexaCred! Please sign this message to authenticate your wallet.\n\nWallet: ${activeAccount}\nTimestamp: ${Date.now()}`;
+      const message = `Welcome to NexaCred! Please sign this message to authenticate your wallet.\n\nWallet: ${activeAccount}\nTimestamp: ${new Date().toISOString()}`;
       
       // Sign message using the active signer directly to avoid React state update lag
       const signature = await activeSigner.signMessage(message);
