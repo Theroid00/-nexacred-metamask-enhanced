@@ -1,4 +1,5 @@
 import supabase from '../config/supabaseClient.js';
+import mockStore from '../config/mockStore.js';
 
 // Helper to map DB history to Frontend format
 const mapHistoryToCamelCase = (h) => {
@@ -34,23 +35,39 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const { data: newHistory, error: insertError } = await supabase
-      .from('history')
-      .insert([{
-        borrower,
-        lender,
+    let newHistory;
+    try {
+      const { data: created, error: insertError } = await supabase
+        .from('history')
+        .insert([{
+          borrower,
+          lender,
+          amount: parseFloat(amount),
+          type,
+          message
+        }])
+        .select(`
+          id, amount, type, status, request_date, response_date, message,
+          borrower:users!borrower(id, username, first_name, last_name),
+          lender:users!lender(id, username, first_name, last_name)
+        `)
+        .single();
+
+      if (insertError) throw insertError;
+      newHistory = created;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Creating history record in Local MockStore:", dbErr.message);
+      const borrowerUser = mockStore.findUserById(borrower);
+      newHistory = mockStore.addHistory({
+        borrower: borrowerUser ? { id: borrowerUser.id, username: borrowerUser.username, first_name: borrowerUser.first_name, last_name: borrowerUser.last_name } : null,
+        user_id: borrower,
         amount: parseFloat(amount),
         type,
+        status: 'pending',
+        request_date: new Date().toISOString(),
         message
-      }])
-      .select(`
-        id, amount, type, status, request_date, response_date, message,
-        borrower:users!borrower(id, username, first_name, last_name),
-        lender:users!lender(id, username, first_name, last_name)
-      `)
-      .single();
-
-    if (insertError) throw insertError;
+      });
+    }
 
     res.status(201).json({ success: true, history: mapHistoryToCamelCase(newHistory) });
   } catch (err) {
@@ -64,17 +81,24 @@ export const getUserHistory = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const { data: history, error: fetchError } = await supabase
-      .from('history')
-      .select(`
-        id, amount, type, status, request_date, response_date, message,
-        borrower:users!borrower(id, username, first_name, last_name),
-        lender:users!lender(id, username, first_name, last_name)
-      `)
-      .or(`borrower.eq.${userId},lender.eq.${userId}`)
-      .order('request_date', { ascending: false });
+    let history;
+    try {
+      const { data: fetched, error: fetchError } = await supabase
+        .from('history')
+        .select(`
+          id, amount, type, status, request_date, response_date, message,
+          borrower:users!borrower(id, username, first_name, last_name),
+          lender:users!lender(id, username, first_name, last_name)
+        `)
+        .or(`borrower.eq.${userId},lender.eq.${userId}`)
+        .order('request_date', { ascending: false });
 
-    if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
+      history = fetched;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Fetching history from Local MockStore:", dbErr.message);
+      history = mockStore.getHistoryByUserId(userId);
+    }
 
     res.json({ success: true, history: history.map(mapHistoryToCamelCase) });
   } catch (err) {

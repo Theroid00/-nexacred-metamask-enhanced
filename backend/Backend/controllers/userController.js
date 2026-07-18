@@ -1,4 +1,5 @@
 import supabase from '../config/supabaseClient.js';
+import mockStore from '../config/mockStore.js';
 import bcrypt from "bcryptjs";  
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -208,14 +209,20 @@ export async function registerUser(req, res) {
     if (insertData.pan) insertData.pan = encryptPII(insertData.pan);
     if (insertData.aadhaar) insertData.aadhaar = encryptPII(insertData.aadhaar);
 
-    // Save user in Supabase
-    const { data: newUser, error: insertError } = await supabase
-      .from('users')
-      .insert([insertData])
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
+    // Attempt save user in Supabase with mockStore fallback
+    let newUser;
+    try {
+      const { data: created, error: insertError } = await supabase
+        .from('users')
+        .insert([insertData])
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      newUser = created;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Registering user in Local MockStore:", dbErr.message);
+      newUser = mockStore.createUser(insertData);
+    }
 
     res.status(201).json({ message: "User registered successfully", user: mapUserToCamelCase(newUser) });
   } catch (err) {
@@ -229,13 +236,21 @@ export async function loginUser(req, res) {
   try {
     const { username, password } = req.body;
     
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('username', username)
-      .maybeSingle();
+    let user;
+    try {
+      const { data: fetched, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .maybeSingle();
 
-    if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
+      user = fetched;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Authenticating via Local MockStore:", dbErr.message);
+      user = mockStore.findUserByUsername(username);
+    }
+
     if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
@@ -415,13 +430,19 @@ export async function walletAuth(req, res) {
     const normalizedAddress = walletAddress.toLowerCase();
 
     // Check if user exists with this wallet address
-    let { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('wallet_address', normalizedAddress)
-      .maybeSingle();
-
-    if (fetchError) throw fetchError;
+    let user;
+    try {
+      const { data: fetched, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', normalizedAddress)
+        .maybeSingle();
+      if (fetchError) throw fetchError;
+      user = fetched;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Checking wallet in Local MockStore:", dbErr.message);
+      user = mockStore.findUserByWallet(normalizedAddress);
+    }
     
     if (!user) {
       // Create new user with wallet authentication
@@ -466,14 +487,18 @@ export async function walletAuth(req, res) {
         itr_status: 'Filed ITR in past 2 years'
       };
 
-      const { data: createdUser, error: insertError } = await supabase
-        .from('users')
-        .insert([insertData])
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-      user = createdUser;
+      try {
+        const { data: createdUser, error: insertError } = await supabase
+          .from('users')
+          .insert([insertData])
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        user = createdUser;
+      } catch (dbErr) {
+        console.warn("Supabase unreachable. Creating wallet user in Local MockStore:", dbErr.message);
+        user = mockStore.createUser(insertData);
+      }
 
       // New Web3 user gets default score registered on blockchain oracle
       import('./blockchainSyncController.js').then(({ pushScoreToChain }) => {
@@ -481,15 +506,18 @@ export async function walletAuth(req, res) {
       }).catch(err => console.error("Oracle score push trigger failed:", err.message));
     } else {
       // Update last activity
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({ last_wallet_activity: new Date().toISOString() })
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-      user = updatedUser;
+      try {
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('users')
+          .update({ last_wallet_activity: new Date().toISOString() })
+          .eq('id', user.id)
+          .select()
+          .single();
+        if (updateError) throw updateError;
+        user = updatedUser;
+      } catch (dbErr) {
+        user = mockStore.updateUser(user.id, { last_wallet_activity: new Date().toISOString() });
+      }
     }
 
     const camelUser = mapUserToCamelCase(user);
@@ -527,13 +555,21 @@ export async function walletAuth(req, res) {
 export async function getCurrentUser(req, res) {
   try {
     const userId = req.user.userId;
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+    let user;
+    try {
+      const { data: fetched, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (error) throw error;
+      if (error) throw error;
+      user = fetched;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Fetching current user from Local MockStore:", dbErr.message);
+      user = mockStore.findUserById(userId);
+    }
+
     if (!user) return res.status(404).json({ error: "User not found" });
 
     res.json({ user: mapUserToCamelCase(user) });
