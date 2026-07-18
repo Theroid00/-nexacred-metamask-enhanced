@@ -150,7 +150,11 @@ class MockStore {
   }
 
   getHistoryByUserId(userId) {
-    return this.history.filter(h => h.user_id === userId);
+    return this.history.filter(h => 
+      h.user_id === userId || 
+      (h.borrower && (h.borrower.id === userId || h.borrower._id === userId)) || 
+      (h.lender && (h.lender.id === userId || h.lender._id === userId))
+    );
   }
 
   addHistory(historyData) {

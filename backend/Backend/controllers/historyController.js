@@ -58,8 +58,10 @@ export const createRequest = async (req, res) => {
     } catch (dbErr) {
       console.warn("Supabase unreachable. Creating history record in Local MockStore:", dbErr.message);
       const borrowerUser = mockStore.findUserById(borrower);
+      const lenderUser = mockStore.findUserById(lender);
       newHistory = mockStore.addHistory({
         borrower: borrowerUser ? { id: borrowerUser.id, username: borrowerUser.username, first_name: borrowerUser.first_name, last_name: borrowerUser.last_name } : null,
+        lender: lenderUser ? { id: lenderUser.id, username: lenderUser.username, first_name: lenderUser.first_name, last_name: lenderUser.last_name } : null,
         user_id: borrower,
         amount: parseFloat(amount),
         type,
@@ -117,18 +119,31 @@ export const updateRequestStatus = async (req, res) => {
       return res.status(400).json({ error: "Invalid status" });
     }
 
-    const { data: updatedHistory, error: updateError } = await supabase
-      .from('history')
-      .update({ status, response_date: new Date().toISOString() })
-      .eq('id', id)
-      .select(`
-        id, amount, type, status, request_date, response_date, message,
-        borrower:users!borrower(id, username, first_name, last_name),
-        lender:users!lender(id, username, first_name, last_name)
-      `)
-      .maybeSingle();
+    let updatedHistory;
+    try {
+      const { data: updated, error: updateError } = await supabase
+        .from('history')
+        .update({ status, response_date: new Date().toISOString() })
+        .eq('id', id)
+        .select(`
+          id, amount, type, status, request_date, response_date, message,
+          borrower:users!borrower(id, username, first_name, last_name),
+          lender:users!lender(id, username, first_name, last_name)
+        `)
+        .maybeSingle();
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+      updatedHistory = updated;
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Updating history record in Local MockStore:", dbErr.message);
+      const item = mockStore.history.find(h => h.id === id);
+      if (item) {
+        item.status = status;
+        item.response_date = new Date().toISOString();
+        updatedHistory = item;
+      }
+    }
+
     if (!updatedHistory) return res.status(404).json({ error: "History record not found" });
 
     res.json({ success: true, history: mapHistoryToCamelCase(updatedHistory) });
