@@ -49,6 +49,47 @@ class MockStore {
 
     this.users.set(demoUser.id, demoUser);
 
+    // Seed second demo lender account
+    const lenderUser = {
+      id: 'demo-lender-uuid-2002',
+      username: 'lenderuser',
+      email: 'lender@nexacred.com',
+      password_hash: DEMO_PASSWORD_HASH,
+      wallet_address: '0x9876543210fedcba9876543210fedcba98765432',
+      wallet_connected_at: new Date().toISOString(),
+      last_wallet_activity: new Date().toISOString(),
+      first_name: 'Capital',
+      last_name: 'Lender',
+      date_of_birth: '1990-01-01',
+      phone_number: '+919876543211',
+      pan: 'XYZAB9876C',
+      aadhaar: '111122223333',
+      street_address: '456 Liquidity Ave',
+      area_locality: 'DeFi Hub',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pin_code: '400001',
+      country: 'India',
+      employment_status: 'Self-employed Investor',
+      occupation_category: 'Finance / Investment',
+      company_name: 'Alpha Capital',
+      years_of_experience: 8,
+      monthly_income_range: '₹5,000,000+',
+      has_credit_accounts: true,
+      credit_purpose: 'Peer-to-Peer Lending',
+      has_bank_account: true,
+      primary_bank_name: 'ICICI Bank',
+      existing_credit_score: 810,
+      terms_accepted: true,
+      privacy_policy_accepted: true,
+      consent_credit_bureau: true,
+      age_verified: true,
+      itr_status: 'Filed ITR in past 2 years',
+      created_at: new Date().toISOString()
+    };
+
+    this.users.set(lenderUser.id, lenderUser);
+
     // Seed initial demo borrowing history
     this.history.push({
       id: 'loan-hist-001',
