@@ -46,7 +46,7 @@ export function decryptPII(text) {
     return decrypted;
   } catch (err) {
     console.error("PII Decryption failed:", err.message);
-    return text;
+    return null;
   }
 }
 
@@ -290,7 +290,15 @@ export async function getUsers(req, res) {
       }
 
       if (!user) return res.status(404).json({ error: "User not found" });
-      return res.json({ user: mapUserToCamelCase(user) });
+      const camelUser = mapUserToCamelCase(user);
+      if (req.user && req.user.userId !== camelUser._id) {
+        delete camelUser.pan;
+        delete camelUser.aadhaar;
+        delete camelUser.phoneNumber;
+        delete camelUser.streetAddress;
+        delete camelUser.areaLocality;
+      }
+      return res.json({ user: camelUser });
     }
 
     let users;
@@ -474,14 +482,24 @@ export async function deleteUser(req, res) {
       return res.status(403).json({ error: "Access denied. You can only delete your own profile." });
     }
 
-    const { data: user, error: deleteError } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', req.params.id)
-      .select()
-      .maybeSingle();
+    let user;
+    try {
+      const { data: deleted, error: deleteError } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', req.params.id)
+        .select()
+        .maybeSingle();
 
-    if (deleteError) throw deleteError;
+      if (deleteError) throw deleteError;
+      user = deleted;
+    } catch (dbErr) {
+      user = mockStore.findUserById(req.params.id);
+      if (user) {
+        mockStore.users.delete(user._id || user.id);
+      }
+    }
+
     if (!user) return res.status(404).json({ error: "User not found" });
     res.json({ message: "User deleted" });
   } catch (err) {
