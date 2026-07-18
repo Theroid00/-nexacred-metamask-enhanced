@@ -10,7 +10,10 @@ export default function Header({ user, handleLogout, setAuthOpen }) {
           <a href="#cta" className="hover:text-white">Get started</a>
           {user ? (
             <>
-              <span style={{ marginLeft: 24, marginRight: 8, color: '#fff', fontWeight: 500, fontSize: 15 }}>Welcome, {user.username || user.email}</span>
+              <span style={{ marginLeft: 16, marginRight: 8, color: '#fff', fontWeight: 500, fontSize: 15 }}>Welcome, {user.username || user.email}</span>
+              <a href="/dashboard" className="px-4 py-1.5 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-white font-semibold rounded-lg text-sm shadow-md transition transform hover:scale-105">
+                Go to Dashboard 🚀
+              </a>
               <button onClick={handleLogout} style={{ background: '#18181b', color: '#fff', border: '1px solid #333', borderRadius: 8, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}>Logout</button>
             </>
           ) : (
