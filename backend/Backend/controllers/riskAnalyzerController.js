@@ -229,9 +229,17 @@ const analyzeTransactions = (walletAddress, transactions, isMock = false) => {
       protocolInteractions[tx.protocol].last_interaction = tx.timestamp;
       
       if (tx.from_address.toLowerCase() === walletAddress.toLowerCase()) {
-        const valEth = parseFloat(tx.value) / 1e18;
-        if (!isNaN(valEth)) {
-          protocolInteractions[tx.protocol].total_value += valEth;
+        try {
+          const valStr = ethers.formatEther(BigInt(tx.value || "0"));
+          const valEth = parseFloat(valStr);
+          if (!isNaN(valEth)) {
+            protocolInteractions[tx.protocol].total_value += valEth;
+          }
+        } catch (e) {
+          const valEth = parseFloat(tx.value) / 1e18;
+          if (!isNaN(valEth)) {
+            protocolInteractions[tx.protocol].total_value += valEth;
+          }
         }
       }
     }
@@ -359,6 +367,11 @@ export const getRiskAnalysis = async (req, res) => {
     
     if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
       return res.status(400).json({ error: "Invalid Ethereum address format" });
+    }
+
+    // Verify requesting user owns or matches the requested walletAddress (IDOR protection)
+    if (req.user && req.user.walletAddress && req.user.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      return res.status(403).json({ error: "Access denied. You can only query risk analysis for your own wallet." });
     }
 
     const txs = await fetchTransactions(walletAddress);
