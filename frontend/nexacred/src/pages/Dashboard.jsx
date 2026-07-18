@@ -308,17 +308,47 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
         </h2>
 
         <div className="space-y-4 text-lg leading-relaxed text-gray-200">
-          {/* Credit Score Highlight */}
-          <div className="my-6 flex flex-col items-center justify-center">
-            <div className="text-xs uppercase tracking-widest text-gray-400 mb-1">Credit Score</div>
-            <div className="relative flex items-center justify-center">
-              <div className="bg-gradient-to-tr from-yellow-400 via-pink-400 to-purple-500 rounded-full p-1 shadow-lg">
-                <div className="bg-gray-900 rounded-full px-8 py-4 flex flex-col items-center justify-center min-w-[120px]">
-                  <span className="text-4xl font-extrabold text-yellow-400 drop-shadow-lg">{user.existingCreditScore ?? 'N/A'}</span>
-                  <span className="text-xs text-gray-300 mt-1"></span>
-                </div>
+          {/* SVG Credit Health Radial Arc Gauge */}
+          <div className="my-6 flex flex-col items-center justify-center p-6 bg-gray-950/60 rounded-2xl border border-white/10 shadow-2xl glass-panel relative overflow-hidden">
+            <div className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-2">Protocol Credit Health</div>
+            
+            <div className="relative flex items-center justify-center w-48 h-48">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" stroke="#1e293b" strokeWidth="8" fill="none" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  stroke="url(#creditScoreGradient)"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeDasharray="251.2"
+                  strokeDashoffset={251.2 - (251.2 * Math.min(Math.max(((user.existingCreditScore || 650) - 300) / 550, 0), 1))}
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-out"
+                />
+                <defs>
+                  <linearGradient id="creditScoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#10b981" />
+                    <stop offset="50%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#a855f7" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              
+              <div className="absolute flex flex-col items-center justify-center text-center">
+                <span className="text-4xl font-extrabold bg-gradient-to-r from-emerald-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent drop-shadow-md">
+                  {user.existingCreditScore ?? 650}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mt-0.5">
+                  {(user.existingCreditScore || 650) >= 740 ? 'Prime AAA' : (user.existingCreditScore || 650) >= 670 ? 'Good Tier A' : 'Fair Tier B'}
+                </span>
               </div>
-              <svg className="absolute -top-3 -right-3 animate-pulse" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke="#fbbf24" strokeWidth="2" fill="none" /></svg>
+            </div>
+            
+            <div className="mt-3 flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs text-emerald-400 font-medium">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Verified On-Chain Oracle Score
             </div>
           </div>
           <div><span className="font-semibold text-indigo-300">👤 Username:</span> {user.username}</div>

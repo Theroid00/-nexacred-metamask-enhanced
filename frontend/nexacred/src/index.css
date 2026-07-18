@@ -1,15 +1,61 @@
 @import "tailwindcss";
 @import "@fontsource/inter/index.css";
+
+:root {
+  color-scheme: dark;
+}
+
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #0b0f19;
+  color: #f3f4f6;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism & Custom Web3 Styling */
+.glass-panel {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-glow {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px -3px rgba(16, 185, 129, 0.3);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px -3px rgba(6, 182, 212, 0.3);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px -3px rgba(168, 85, 247, 0.3);
 }
 
 /* Hide scrollbar for chatbot textarea */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* Internet Explorer 10+ */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Safari and Chrome */
+  display: none;
+}
+
+/* Smooth pulse animation */
+@keyframes softPulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.animate-soft-pulse {
+  animation: softPulse 3s infinite ease-in-out;
 }
