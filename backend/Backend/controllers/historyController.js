@@ -98,6 +98,11 @@ export const getUserHistory = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    // Ensure users can only view their own history (IDOR Prevention)
+    if (req.user.userId !== userId) {
+      return res.status(403).json({ error: "You are not authorized to view this user's history." });
+    }
+
     let history;
     try {
       const { data: fetched, error: fetchError } = await supabase
@@ -124,14 +129,50 @@ export const getUserHistory = async (req, res) => {
   }
 };
 
-// Update request status (approve/reject/complete)
 export const updateRequestStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const validStatuses = ["pending", "approved", "rejected", "completed"];
+    const validStatuses = ["pending", "approved", "rejected", "completed", "cancelled"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
+    }
+
+    // Fetch existing record to verify authorization (IDOR Prevention)
+    let existingRecord;
+    try {
+      const { data, error } = await supabase
+        .from('history')
+        .select('borrower, lender, status')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      existingRecord = data;
+    } catch (dbErr) {
+      existingRecord = mockStore.history.find(h => h.id === id || h._id === id);
+    }
+
+    if (!existingRecord) {
+      return res.status(404).json({ error: "History record not found" });
+    }
+    
+    // Normalize IDs for comparison
+    const recordLenderId = existingRecord.lender?.id || existingRecord.lender?._id || existingRecord.lender;
+    const recordBorrowerId = existingRecord.borrower?.id || existingRecord.borrower?._id || existingRecord.borrower;
+
+    if (status === 'approved' || status === 'rejected') {
+      if (req.user.userId !== recordLenderId) {
+        return res.status(403).json({ error: "Only the lender can approve or reject the loan." });
+      }
+    } else if (status === 'cancelled') {
+      if (req.user.userId !== recordBorrowerId) {
+        return res.status(403).json({ error: "Only the borrower can cancel the loan request." });
+      }
+    } else if (status === 'completed') {
+       // Completed is typically set by blockchain event sync, but we protect it just in case
+       if (req.user.userId !== recordBorrowerId && req.user.userId !== recordLenderId) {
+         return res.status(403).json({ error: "Not authorized to update status." });
+       }
     }
 
     let updatedHistory;
