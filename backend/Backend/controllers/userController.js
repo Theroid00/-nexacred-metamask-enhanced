@@ -271,27 +271,39 @@ export async function loginUser(req, res) {
   }
 }
 
-// 3️⃣ Get all users
 export async function getUsers(req, res) {
   try {
     const { username } = req.query;
     if (username) {
-      const { data: user, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .maybeSingle();
+      let user;
+      try {
+        const { data: fetched, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('username', username)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        user = fetched;
+      } catch (dbErr) {
+        console.warn("Supabase unreachable. Finding user by username in Local MockStore:", dbErr.message);
+        user = mockStore.findUserByUsername(username);
+      }
 
-      if (fetchError) throw fetchError;
       if (!user) return res.status(404).json({ error: "User not found" });
       return res.json({ user: mapUserToCamelCase(user) });
     }
 
-    const { data: users, error: fetchAllError } = await supabase
-      .from('users')
-      .select('*');
+    let users;
+    try {
+      const { data: fetchedAll, error: fetchAllError } = await supabase
+        .from('users')
+        .select('*');
+      if (fetchAllError) throw fetchAllError;
+      users = fetchedAll;
+    } catch (dbErr) {
+      users = Array.from(mockStore.users.values());
+    }
 
-    if (fetchAllError) throw fetchAllError;
     res.json(users.map(mapUserToCamelCase));
   } catch (err) {
     console.error(err);
@@ -299,21 +311,25 @@ export async function getUsers(req, res) {
   }
 }
 
-// 4️⃣ Get user by ID
 export async function getUserById(req, res) {
   try {
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle();
+    let user;
+    try {
+      const { data: fetched, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', req.params.id)
+        .maybeSingle();
+      if (fetchError) throw fetchError;
+      user = fetched;
+    } catch (dbErr) {
+      user = mockStore.findUserById(req.params.id);
+    }
 
-    if (fetchError) throw fetchError;
     if (!user) return res.status(404).json({ error: "User not found" });
     
     const camelUser = mapUserToCamelCase(user);
-    // Strip sensitive PII if the requester is not the profile owner
-    if (req.user.userId !== req.params.id) {
+    if (req.user && req.user.userId !== req.params.id) {
       delete camelUser.pan;
       delete camelUser.aadhaar;
       delete camelUser.phoneNumber;
