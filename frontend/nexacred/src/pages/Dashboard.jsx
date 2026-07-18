@@ -4,8 +4,10 @@ import { MessageCircle, X } from "lucide-react";
 import WalletConnection from '../components/WalletConnection';
 import RiskReport from '../components/RiskReport';
 import { apiFetch } from "../utils/api.js";
+import useNexaCredContract from '../hooks/useNexaCredContract';
 
 export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
+  const contractHelper = useNexaCredContract(wallet?.signer, wallet?.chainId);
   // Chatbot state
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
@@ -994,22 +996,33 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
                           <button
                             className="py-1 px-3 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold rounded-md shadow text-sm transition transform hover:scale-105 border border-green-300 cursor-pointer"
                             style={{ minWidth: 70 }}
-                            onClick={async () => {
-                              await apiFetch(`/history/${req._id}/status`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'approved' })
-                              });
-                              apiFetch(`/history/user/${user._id}`)
-                                .then(res => res.json())
-                                .then(data => {
-                                  if (data.success) {
-                                    const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
-                                    setPendingRequests(pending.length);
-                                    setLendingRequests(pending);
-                                  }
-                                });
-                            }}
+                             onClick={async () => {
+                               if (wallet?.isConnected && wallet?.signer) {
+                                 const ethAmount = req.amount > 10 ? 0.05 : (req.amount || 0.01);
+                                 const fundRes = await contractHelper.fundLoanOnChain({
+                                   loanId: 1,
+                                   amountETH: ethAmount
+                                 });
+                                 if (!fundRes.success) {
+                                   alert("On-Chain Funding Failed or Canceled: " + fundRes.error);
+                                   return;
+                                 }
+                               }
+                               await apiFetch(`/history/${req._id}/status`, {
+                                 method: 'PATCH',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ status: 'approved' })
+                               });
+                               apiFetch(`/history/user/${user._id}`)
+                                 .then(res => res.json())
+                                 .then(data => {
+                                   if (data.success) {
+                                     const pending = data.history.filter(h => h.lender && h.lender._id === user._id && h.status === 'pending');
+                                     setPendingRequests(pending.length);
+                                     setLendingRequests(pending);
+                                   }
+                                 });
+                             }}
                           >
                             Accept
                           </button>
