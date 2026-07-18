@@ -98,7 +98,11 @@ router.post('/query', authenticateToken, async (req, res) => {
           retrievedDocs = ftsDocs.map(d => `[${d.title}] ${d.content}`);
         } else {
           // Fallback: ILIKE scan if FTS returns nothing (e.g. single-char queries)
-          const orClauses = searchWords.map(kw => `content.ilike.%${kw}%`).join(',');
+          // Sanitize kw to prevent PostgREST injection
+          const orClauses = searchWords.map(kw => {
+            const safeKw = kw.replace(/[%"]/g, '');
+            return `content.ilike.%${safeKw}%`;
+          }).join(',');
           const { data: likeDocs } = await supabase
             .from('guidelines')
             .select('title, content')
