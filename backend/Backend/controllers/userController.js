@@ -365,6 +365,43 @@ export async function updateUser(req, res) {
       return res.status(403).json({ error: "Access denied. You can only update your own profile." });
     }
 
+    // Block protected fields from being updated directly (Privilege Escalation / Hijacking)
+    const restrictedFields = ['existingCreditScore', 'existing_credit_score', 'walletAddress', 'wallet_address', 'kycVerified', 'kyc_verified'];
+    for (const field of restrictedFields) {
+      if (req.body[field] !== undefined) {
+        return res.status(403).json({ error: `You cannot update ${field} through this endpoint.` });
+      }
+    }
+
+    // Secure password update mechanism
+    if (req.body.password) {
+      if (!req.body.currentPassword) {
+        return res.status(400).json({ error: "Current password is required to set a new password." });
+      }
+      
+      let currentUserRecord;
+      try {
+        const { data: fetched, error: fetchError } = await supabase
+          .from('users')
+          .select('password_hash')
+          .eq('id', req.params.id)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        currentUserRecord = fetched;
+      } catch (dbErr) {
+        currentUserRecord = mockStore.findUserById(req.params.id);
+      }
+      
+      if (!currentUserRecord) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const isMatch = await bcrypt.compare(req.body.currentPassword, currentUserRecord.password_hash);
+      if (!isMatch) {
+        return res.status(400).json({ error: "Current password is incorrect." });
+      }
+    }
+
     if (req.body.pan) {
       const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
       if (!panRegex.test(req.body.pan.toUpperCase())) {
@@ -386,6 +423,11 @@ export async function updateUser(req, res) {
     if (updateData.pan) updateData.pan = encryptPII(updateData.pan);
     if (updateData.aadhaar) updateData.aadhaar = encryptPII(updateData.aadhaar);
 
+    // Filter out password fields from updateData since we handle it separately
+    delete updateData.password;
+    delete updateData.currentPassword;
+    delete updateData.current_password;
+
     const { data: user, error: updateError } = await supabase
       .from('users')
       .update(updateData)
@@ -400,8 +442,10 @@ export async function updateUser(req, res) {
     let token = undefined;
     if (req.body.password) {
       const salt = await bcrypt.genSalt(10);
-      req.body.password_hash = await bcrypt.hash(req.body.password, salt);
-      delete req.body.password;
+      const newHash = await bcrypt.hash(req.body.password, salt);
+      
+      await supabase.from('users').update({ password_hash: newHash }).eq('id', req.params.id);
+      
       token = jwt.sign(
         { userId: user.id, username: user.username, email: user.email, iat: Math.floor(Date.now() / 1000) },
         EFFECTIVE_JWT_SECRET,
