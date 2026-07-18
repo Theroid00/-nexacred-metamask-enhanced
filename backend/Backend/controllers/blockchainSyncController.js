@@ -33,10 +33,18 @@ const getContract = () => {
   }
 };
 
+import mockStore from "../config/mockStore.js";
+
 // Map blockchain numeric LoanStatus enum to database status string
 const mapBlockchainStatus = (statusNum) => {
-  const statuses = ["pending", "approved", "completed", "defaulted", "rejected"];
-  return statuses[statusNum] || "pending";
+  const statusMap = {
+    0: "pending",   // PENDING
+    1: "approved",  // FUNDED
+    2: "completed", // REPAID
+    3: "defaulted", // DEFAULTED
+    4: "rejected"   // CANCELLED
+  };
+  return statusMap[statusNum] || "pending";
 };
 
 /**
@@ -62,19 +70,25 @@ export const syncUserEvents = async (req, res) => {
     console.log(`Starting on-chain event sync for address: ${normalizedAddress}`);
 
     // Query active database users to fetch UUID mappings for borrower and lender
-    const { data: dbUsers, error: usersError } = await supabase
-      .from('users')
-      .select('id, wallet_address');
-
-    if (usersError) throw usersError;
-
-    // Create lookup map of walletAddress -> userId
     const addressToIdMap = {};
-    dbUsers.forEach(u => {
-      if (u.wallet_address) {
-        addressToIdMap[u.wallet_address.toLowerCase()] = u.id;
-      }
-    });
+    try {
+      const { data: dbUsers, error: usersError } = await supabase
+        .from('users')
+        .select('id, wallet_address');
+      if (usersError) throw usersError;
+      dbUsers.forEach(u => {
+        if (u.wallet_address) {
+          addressToIdMap[u.wallet_address.toLowerCase()] = u.id;
+        }
+      });
+    } catch (dbErr) {
+      console.warn("Supabase unreachable. Fetching users from Local MockStore:", dbErr.message);
+      Array.from(mockStore.users.values()).forEach(u => {
+        if (u.wallet_address) {
+          addressToIdMap[u.wallet_address.toLowerCase()] = u.id;
+        }
+      });
+    }
 
     // 1. Fetch LoanRequested events where user is borrower
     const requestedFilter = contract.filters.LoanRequested(null, walletAddress);
