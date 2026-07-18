@@ -4,10 +4,11 @@ import mockStore from '../config/mockStore.js';
 // Helper to map DB history to Frontend format
 const mapHistoryToCamelCase = (h) => {
   if (!h) return null;
+  const historyId = h.id || h._id;
   return {
-    _id: h.id,
+    _id: historyId,
     borrower: h.borrower ? {
-      _id: h.borrower.id,
+      _id: h.borrower.id || h.borrower._id,
       username: h.borrower.username,
       firstName: h.borrower.first_name,
       lastName: h.borrower.last_name
@@ -136,7 +137,7 @@ export const updateRequestStatus = async (req, res) => {
       updatedHistory = updated;
     } catch (dbErr) {
       console.warn("Supabase unreachable. Updating history record in Local MockStore:", dbErr.message);
-      const item = mockStore.history.find(h => h.id === id);
+      const item = mockStore.history.find(h => h.id === id || h._id === id);
       if (item) {
         item.status = status;
         item.response_date = new Date().toISOString();
