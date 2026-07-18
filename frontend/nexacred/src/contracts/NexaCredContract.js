@@ -10,6 +10,8 @@ export const NEXACRED_ABI = [
   "function requestLoan(uint256 amount, uint256 interestRate, uint256 durationDays, string calldata purpose) external returns (uint256 loanId)",
   "function fundLoan(uint256 loanId) external payable",
   "function repayLoan(uint256 loanId) external payable",
+  "function withdrawFunds() external",
+  "function cancelLoan(uint256 loanId) external",
   "function markDefault(uint256 loanId) external",
   "function getLoan(uint256 loanId) external view returns (tuple(uint256 id, address borrower, address lender, uint256 amount, uint256 interestRate, uint256 durationDays, uint256 creditScore, string purpose, uint8 status, uint256 createdAt, uint256 fundedAt, uint256 dueDate, uint256 totalOwed, uint256 amountRepaid))",
   "function getUserProfile(address user) external view returns (tuple(uint256 creditScore, uint256 totalBorrowed, uint256 totalLent, uint256 successfulLoans, uint256 defaultedLoans, bool kycVerified, uint256 reputation))",

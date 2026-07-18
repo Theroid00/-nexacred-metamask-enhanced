@@ -98,6 +98,50 @@ export const useNexaCredContract = (signer, chainId) => {
     }
   }, [getContract]);
 
+  // Withdraw Lender Funds On-Chain
+  const withdrawFundsOnChain = useCallback(async () => {
+    try {
+      setTxLoading(true);
+      setTxError(null);
+      setTxHash(null);
+
+      const contract = getContract();
+      const tx = await contract.withdrawFunds();
+      setTxHash(tx.hash);
+      const receipt = await tx.wait();
+      setTxLoading(false);
+      return { success: true, hash: tx.hash, receipt };
+    } catch (err) {
+      console.error("On-chain withdrawFunds error:", err);
+      const msg = err.reason || err.message || "On-chain transaction failed";
+      setTxError(msg);
+      setTxLoading(false);
+      return { success: false, error: msg };
+    }
+  }, [getContract]);
+
+  // Cancel Loan Request On-Chain
+  const cancelLoanOnChain = useCallback(async (loanId) => {
+    try {
+      setTxLoading(true);
+      setTxError(null);
+      setTxHash(null);
+
+      const contract = getContract();
+      const tx = await contract.cancelLoan(loanId);
+      setTxHash(tx.hash);
+      const receipt = await tx.wait();
+      setTxLoading(false);
+      return { success: true, hash: tx.hash, receipt };
+    } catch (err) {
+      console.error("On-chain cancelLoan error:", err);
+      const msg = err.reason || err.message || "On-chain transaction failed";
+      setTxError(msg);
+      setTxLoading(false);
+      return { success: false, error: msg };
+    }
+  }, [getContract]);
+
   return {
     contractAddress: getContractAddress(),
     txLoading,
@@ -105,7 +149,9 @@ export const useNexaCredContract = (signer, chainId) => {
     txError,
     requestLoanOnChain,
     fundLoanOnChain,
-    repayLoanOnChain
+    repayLoanOnChain,
+    withdrawFundsOnChain,
+    cancelLoanOnChain
   };
 };
 
