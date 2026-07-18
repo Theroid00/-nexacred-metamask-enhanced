@@ -97,6 +97,9 @@ contract NexaCred {
     uint256[] public activeLoanIds;
     uint256[] public activeOfferIds;
     
+    // Funds waiting to be withdrawn by lenders
+    mapping(address => uint256) public pendingWithdrawals;
+    
     // Events for backend/frontend integration
     event LoanRequested(uint256 indexed loanId, address indexed borrower, uint256 amount, string purpose);
     event LoanFunded(uint256 indexed loanId, address indexed lender, address indexed borrower, uint256 amount);
@@ -253,10 +256,23 @@ contract NexaCred {
             emit LoanCompleted(loanId, loan.borrower);
         }
         
-        // Transfer payment to lender
-        payable(loan.lender).transfer(msg.value);
+        // Add payment to lender's pending withdrawals (Pull-over-Push to prevent DoS)
+        pendingWithdrawals[loan.lender] += msg.value;
         
         emit RepaymentMade(loanId, msg.value, remaining - msg.value);
+    }
+    
+    /**
+     * Withdraw available funds
+     * Called by: Lender to claim repaid funds
+     */
+    function withdrawFunds() external whenActive noReentrancy {
+        uint256 amount = pendingWithdrawals[msg.sender];
+        require(amount > 0, "No funds to withdraw");
+        
+        pendingWithdrawals[msg.sender] = 0;
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "ETH transfer failed");
     }
     
     /**
