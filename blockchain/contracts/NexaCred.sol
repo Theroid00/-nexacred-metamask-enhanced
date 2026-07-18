@@ -208,10 +208,25 @@ contract NexaCred {
         userProfiles[loan.borrower].totalBorrowed += loan.amount;
         userLendingIds[msg.sender].push(loanId);
         
-        // Transfer funds to borrower
-        payable(loan.borrower).transfer(borrowerReceives);
+        // Remove from active pending loans array
+        _removeFromActiveLoans(loanId);
         
         emit LoanFunded(loanId, msg.sender, loan.borrower, loan.amount);
+
+        // Transfer funds to borrower (Interactions last)
+        (bool success, ) = payable(loan.borrower).call{value: borrowerReceives}("");
+        require(success, "ETH transfer to borrower failed");
+    }
+
+    function _removeFromActiveLoans(uint256 loanId) private {
+        uint256 length = activeLoanIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (activeLoanIds[i] == loanId) {
+                activeLoanIds[i] = activeLoanIds[length - 1];
+                activeLoanIds.pop();
+                break;
+            }
+        }
     }
     
     /**
