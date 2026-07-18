@@ -383,6 +383,19 @@ export async function updateUser(req, res) {
     if (updateError) throw updateError;
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    // Rotate JWT token if password or identity changed
+    let token = undefined;
+    if (req.body.password) {
+      const salt = await bcrypt.genSalt(10);
+      req.body.password_hash = await bcrypt.hash(req.body.password, salt);
+      delete req.body.password;
+      token = jwt.sign(
+        { userId: user.id, username: user.username, email: user.email, iat: Math.floor(Date.now() / 1000) },
+        EFFECTIVE_JWT_SECRET,
+        { expiresIn: "14d" }
+      );
+    }
+
     // If credit score was updated, push it to the blockchain via oracle helper
     if (req.body.existingCreditScore && user.wallet_address) {
       import('./blockchainSyncController.js').then(({ pushScoreToChain }) => {
@@ -390,7 +403,7 @@ export async function updateUser(req, res) {
       }).catch(err => console.error("Oracle score push trigger failed:", err.message));
     }
 
-    res.json({ message: "User updated", user: mapUserToCamelCase(user) });
+    res.json({ message: "User updated", user: mapUserToCamelCase(user), token });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });

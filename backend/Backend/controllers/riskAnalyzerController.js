@@ -154,9 +154,14 @@ const fetchTransactions = async (walletAddress) => {
     if (!response.ok) throw new Error(`HTTP error ${response.status}`);
     
     const result = await response.json();
-    if (result.status !== "1" || !result.result || result.result.length === 0) {
-      console.log("No live transactions found on Etherscan or rate-limit hit. Falling back to mock transactions.");
-      return fetchMockTransactions(walletAddress);
+    if (result.status !== "1" || !result.result || !Array.isArray(result.result) || result.result.length === 0) {
+      const isRateLimit = typeof result.result === 'string' && result.result.includes('rate limit');
+      console.log(`No live transactions found on Etherscan or rate-limit hit (${isRateLimit ? 'Rate limit hit' : 'No txs'}). Falling back to mock transactions.`);
+      const mockTxs = fetchMockTransactions(walletAddress);
+      if (isRateLimit && mockTxs.length > 0) {
+        mockTxs[0]._rateLimitHit = true;
+      }
+      return mockTxs;
     }
 
     // Map Etherscan transaction list to NexaCred schema
