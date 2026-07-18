@@ -58,6 +58,11 @@ export const syncUserEvents = async (req, res) => {
       return res.status(400).json({ error: "Invalid Ethereum address format" });
     }
 
+    // Verify requesting user owns or matches the requested walletAddress (Authorization check)
+    if (req.user && req.user.walletAddress && req.user.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      return res.status(403).json({ error: "Access denied. You can only sync your own wallet events." });
+    }
+
     const { contract } = getContract();
     if (!contract) {
       return res.status(503).json({ 
@@ -122,7 +127,7 @@ export const syncUserEvents = async (req, res) => {
           .from('history')
           .insert([{
             borrower: borrowerId,
-            lender: lenderId || borrowerId, // Fallback if no lender yet
+            lender: lenderId || null, // Null if unfunded on-chain yet
             amount: amount,
             type: 'borrow',
             status: blockchainStatus,
