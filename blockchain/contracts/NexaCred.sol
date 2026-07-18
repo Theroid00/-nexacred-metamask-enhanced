@@ -276,6 +276,19 @@ contract NexaCred {
     }
     
     /**
+     * Cancel a pending loan request
+     * Called by: Borrower before loan is funded
+     */
+    function cancelLoan(uint256 loanId) external whenActive validLoanId(loanId) {
+        Loan storage loan = loans[loanId];
+        require(loan.status == LoanStatus.PENDING, "Loan not pending");
+        require(loan.borrower == msg.sender, "Only borrower can cancel");
+        
+        loan.status = LoanStatus.CANCELLED;
+        _removeFromActiveLoans(loanId);
+    }
+    
+    /**
      * Mark loan as defaulted
      * Called by: Lender after due date passes
      */
