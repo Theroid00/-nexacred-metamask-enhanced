@@ -503,6 +503,19 @@ export async function walletAuth(req, res) {
       return res.status(400).json({ error: "Invalid wallet address format" });
     }
 
+    // Validate the message timestamp to prevent signature replay attacks
+    const timestampMatch = message.match(/Timestamp: (.*)/);
+    if (!timestampMatch) {
+      return res.status(400).json({ error: "Message must contain a Timestamp to prevent replay attacks" });
+    }
+
+    const msgDate = new Date(timestampMatch[1]);
+    const now = new Date();
+    // Allow a 5 minute window for the signature
+    if (isNaN(msgDate.getTime()) || Math.abs(now - msgDate) > 5 * 60 * 1000) {
+      return res.status(400).json({ error: "Signature expired or timestamp invalid" });
+    }
+
     try {
       const recoveredAddress = ethers.verifyMessage(message, signature);
       if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
