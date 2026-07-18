@@ -122,6 +122,25 @@ const useMetaMask = () => {
       return true;
     } catch (err) {
       console.error('Error switching network:', err);
+      if (err.code === 4902) {
+        try {
+          const networkParams = {
+            '0xaa36a7': { chainName: 'Sepolia Testnet', nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://rpc.sepolia.org'] },
+            '0x13882': { chainName: 'Polygon Amoy', nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 }, rpcUrls: ['https://rpc-amoy.polygon.technology'] }
+          };
+          const param = networkParams[targetChainId];
+          if (param) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{ chainId: targetChainId, ...param }]
+            });
+            return true;
+          }
+        } catch (addErr) {
+          setError('Failed to add network to MetaMask: ' + addErr.message);
+          return false;
+        }
+      }
       setError('Failed to switch network: ' + (err.message || 'Unknown error'));
       return false;
     }
