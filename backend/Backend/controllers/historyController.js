@@ -36,6 +36,15 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
+    if (borrower === lender) {
+      return res.status(400).json({ error: "Borrower and lender cannot be the same user." });
+    }
+
+    // Sanitize message string to prevent XSS injection
+    const sanitizedMessage = typeof message === 'string' 
+      ? message.replace(/</g, "&lt;").replace(/>/g, "&gt;") 
+      : "";
+
     let newHistory;
     try {
       const { data: created, error: insertError } = await supabase
@@ -45,7 +54,7 @@ export const createRequest = async (req, res) => {
           lender,
           amount: parseFloat(amount),
           type,
-          message
+          message: sanitizedMessage
         }])
         .select(`
           id, amount, type, status, request_date, response_date, message,
@@ -68,7 +77,7 @@ export const createRequest = async (req, res) => {
         type,
         status: 'pending',
         request_date: new Date().toISOString(),
-        message
+        message: sanitizedMessage
       });
     }
 

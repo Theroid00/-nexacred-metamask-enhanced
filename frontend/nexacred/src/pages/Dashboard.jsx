@@ -186,6 +186,12 @@ export default function Dashboard({ user, wallet, walletUser, onUserUpdate }) {
       }
       const lenderId = dataLender.user._id;
 
+      if (lenderId === user._id) {
+        setBorrowError('You cannot request a loan from yourself!');
+        setBorrowLoading(false);
+        return;
+      }
+
       // If MetaMask is connected, trigger real Smart Contract requestLoan on-chain
       if (wallet?.isConnected && wallet?.signer) {
         const ethAmount = parseFloat(borrowForm.amount) > 10 ? 0.05 : (parseFloat(borrowForm.amount) || 0.01);
