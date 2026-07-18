@@ -40,6 +40,11 @@ export const createRequest = async (req, res) => {
       return res.status(400).json({ error: "Borrower and lender cannot be the same user." });
     }
 
+    // Ensure the current user is actually one of the parties in the request (Spoofing Prevention)
+    if (req.user.userId !== borrower && req.user.userId !== lender) {
+      return res.status(403).json({ error: "You can only create loan requests where you are the borrower or lender." });
+    }
+
     // Sanitize message string to prevent XSS injection
     const sanitizedMessage = typeof message === 'string' 
       ? message.replace(/</g, "&lt;").replace(/>/g, "&gt;") 
