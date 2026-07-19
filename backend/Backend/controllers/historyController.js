@@ -14,7 +14,7 @@ const mapHistoryToCamelCase = (h) => {
       lastName: h.borrower.last_name
     } : null,
     lender: h.lender ? {
-      _id: h.lender.id,
+      _id: h.lender.id || h.lender._id,
       username: h.lender.username,
       firstName: h.lender.first_name,
       lastName: h.lender.last_name

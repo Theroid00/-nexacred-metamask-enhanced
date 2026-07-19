@@ -373,13 +373,13 @@ export async function updateUser(req, res) {
       return res.status(403).json({ error: "Access denied. You can only update your own profile." });
     }
 
-    // Block protected fields from being updated directly (Privilege Escalation / Hijacking)
-    const restrictedFields = ['existingCreditScore', 'existing_credit_score', 'walletAddress', 'wallet_address', 'kycVerified', 'kyc_verified'];
-    for (const field of restrictedFields) {
-      if (req.body[field] !== undefined) {
-        return res.status(403).json({ error: `You cannot update ${field} through this endpoint.` });
-      }
-    }
+    // Strip protected fields from updateData to prevent privilege escalation while allowing profile edits
+    delete req.body.existingCreditScore;
+    delete req.body.existing_credit_score;
+    delete req.body.walletAddress;
+    delete req.body.wallet_address;
+    delete req.body.kycVerified;
+    delete req.body.kyc_verified;
 
     // Secure password update mechanism
     if (req.body.password) {
